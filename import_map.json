@@ -1,0 +1,14 @@
+{
+  "imports": {
+    "aws-sdk/client-s3": "https://esm.sh/@aws-sdk/client-s3@3.626.0",
+    "aws-sdk/lib-storage": "https://esm.sh/@aws-sdk/lib-storage@3.626.0",
+    "@hono/hono": "jsr:@hono/hono@^4.4.9",
+    "zod": "https://deno.land/x/zod@v3.22.2/mod.ts",
+    "std/": "https://deno.land/std@0.224.0/",
+    "random": "https://deno.land/std@0.177.0/node/crypto.ts",
+    "@smithy/signature-v4": "npm:@smithy/signature-v4",
+    "@smithy/types": "npm:@smithy/types",
+    "@aws-crypto/sha256": "https://esm.sh/@aws-crypto/sha256-js@5.2.0",
+    "@std/yaml": "jsr:@std/yaml@^0.224.3"
+  }
+}
