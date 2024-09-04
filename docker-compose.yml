@@ -1,0 +1,27 @@
+services:
+  minio:
+    image: bitnami/minio:2024
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_REGION_NAME: local
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: password
+      MINIO_DEFAULT_BUCKETS: "test"
+
+  swift:
+    image: openstackswift/saio:latest
+    ports:
+      - "8080:8080"
+
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
