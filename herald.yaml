@@ -1,11 +1,29 @@
-dev:
-  port: 8000
-  temp_dir: "./tmp"
-  s3_config:
-    endpoint: "http://localhost:9000"
-    region: local
-    bucket: test
-    forcePathStyle: true
-    credentials:
-      accessKeyId: minio
-      secretAccessKey: password
+port: 8000
+temp_dir: "./tmp"
+backends:
+  minio_s3:
+    protocol: s3
+  openstack_swift:
+    protocol: swift
+buckets:
+  s3_test:
+    backend: minio_s3
+    config:
+      endpoint: "http://localhost:9000"
+      region: local
+      forcePathStyle: true
+      credentials:
+        accessKeyId: minio
+        secretAccessKey: password
+  swift_test:
+    backend: openstack_swift
+    config:
+      auth_url: "http://localhost:8080/auth/v1.0"
+      storage_url: "http://localhost:8080"
+      credentials:
+        username: "test:tester"
+        password: "testing"
+        project_name: "your-project-name"
+        user_domain_name: "Default"
+        project_domain_name: "Default"
+      container: "your-container-name"

@@ -2,6 +2,8 @@ import { LevelName, Logger } from "std/log/mod.ts";
 import { basename, dirname, extname } from "std/path/mod.ts";
 import * as log from "std/log/mod.ts";
 import { ensureDir, exists } from "std/fs/mod.ts";
+import { envVarsConfig } from "../config/mod.ts";
+import { magenta } from "std/fmt/colors.ts";
 
 const logFilePath = "logs/.log";
 const loggers = new Map<string, Logger>();
@@ -17,7 +19,14 @@ async function setupLogFile() {
 const consoleHandler = new log.ConsoleHandler("NOTSET", {
   formatter: (logRecord) => {
     const { datetime, levelName, msg } = logRecord;
-    return `${datetime} ${levelName} ${msg}`;
+
+    const formattedDate =
+      datetime.toISOString().replace("T", " ").split(".")[0];
+    let finalMessasge = `${formattedDate} ${levelName} ${msg}`;
+    if (logRecord.level === log.LogLevels.DEBUG) {
+      finalMessasge = magenta(finalMessasge);
+    }
+    return finalMessasge;
   },
 });
 
@@ -36,6 +45,14 @@ export async function setupLoggers() {
   });
 }
 
+export function getLogLevel(): LevelName {
+  if (envVarsConfig) {
+    return envVarsConfig.log_level ?? "NOTSET";
+  }
+
+  return "NOTSET";
+}
+
 /**
  * Retrieves a logger instance based on the provided name and level.
  * If the name is an object, it extracts the base name and directory name from the URL and constructs a new name.
@@ -49,7 +66,7 @@ export async function setupLoggers() {
  */
 export function getLogger(
   name: ImportMeta | string | null = null,
-  levelName: LevelName = "NOTSET",
+  levelName: LevelName = getLogLevel(),
 ): Logger {
   if (name && typeof name === "object") {
     const bname = basename(name.url);

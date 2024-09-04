@@ -36,7 +36,7 @@ Deno.bench("upload whole object", async (b) => {
   const filePath = await createTempFile(5); // 5 MB file
   const file = await Deno.readFile(filePath);
   const fileName = basename(filePath);
-  const s3 = getS3Client();
+  const s3 = getS3Client(bucketName);
 
   await setupBucket(s3, bucketName);
 
@@ -55,7 +55,7 @@ Deno.bench("upload whole object", async (b) => {
 });
 
 const uploadInChunk = async (fileSizeInMb: number, b: Deno.BenchContext) => {
-  const s3 = getS3Client();
+  const s3 = getS3Client(bucketName);
 
   await setupBucket(s3, bucketName);
 
@@ -103,7 +103,7 @@ Deno.bench("upload object with chunk: 5MB", async (b) => {
 // });
 
 Deno.bench("List Objects", async (b) => {
-  const s3 = getS3Client();
+  const s3 = getS3Client(bucketName);
 
   await setupBucket(s3, bucketName);
   await uploadMultipleFiles(s3, bucketName);
@@ -115,7 +115,7 @@ Deno.bench("List Objects", async (b) => {
 });
 
 Deno.bench("Get Object", async (b) => {
-  const s3 = getS3Client();
+  const s3 = getS3Client(bucketName);
 
   const { stream: fileStream, fileName, size } = await createTempStream(2);
 
@@ -142,7 +142,7 @@ Deno.bench("Get Object", async (b) => {
 });
 
 Deno.bench("Delete Object", async (b) => {
-  const s3 = getS3Client();
+  const s3 = getS3Client(bucketName);
 
   const { stream: fileStream, fileName, size } = await createTempStream(2);
 

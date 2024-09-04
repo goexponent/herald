@@ -9,43 +9,18 @@ import {
   PutObjectCommand,
   S3Client,
 } from "aws-sdk/client-s3";
-import { appConfig } from "../../src/config/mod.ts";
 import { createTempFile, createTempStream } from "../../utils/file.ts";
 import { assert } from "std/assert/assert.ts";
 import { setupBucket } from "../../utils/s3.ts";
 import { Upload } from "aws-sdk/lib-storage";
+import { getS3Client } from "../../src/utils/s3.ts";
 
-const proxyUrl = `http://localhost:${appConfig.port}`;
 const filePath = await createTempFile(1); // 1MB
 
-const bucket = appConfig.s3_config.bucket ?? "test-bucket";
+const bucket = "s3-bucket";
 const objectKey = path.basename(filePath);
 
-// deno-lint-ignore require-await no-explicit-any
-const loggingMiddleware = (next: any) => async (args: any) => {
-  const { request } = args;
-  // deno-lint-ignore no-console
-  console.log("Request Details:", {
-    url:
-      `${request.protocol}//${request.hostname}:${request.port}${request.path}`,
-    method: request.method,
-    hostname: request.hostname,
-    path: request.path,
-    headers: request.headers,
-  });
-  return next(args);
-};
-
-const s3 = new S3Client({
-  credentials: appConfig.s3_config.credentials,
-  // endpoint: appConfig.s3_config.endpoint,
-  endpoint: proxyUrl,
-  region: appConfig.s3_config.region,
-  forcePathStyle: appConfig.s3_config.forcePathStyle,
-});
-s3.middlewareStack.add(loggingMiddleware, {
-  step: "finalizeRequest",
-});
+const s3 = getS3Client(bucket);
 
 async function deleteBucketIfExists(bucketName: string) {
   while (true) {

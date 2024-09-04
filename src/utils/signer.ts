@@ -1,4 +1,4 @@
-import { appConfig } from "../config/mod.ts";
+import { S3BucketConfig, S3Config } from "../config/mod.ts";
 import { HttpRequest, QueryParameterBag } from "@smithy/types";
 import { Sha256 } from "@aws-crypto/sha256";
 import * as s from "@smithy/signature-v4";
@@ -10,10 +10,10 @@ import { HTTPException } from "../types/http-exception.ts";
  * Returns a V4 signer for S3 requests after loading configs.
  * @returns The V4 signer object.
  */
-function getV4Signer() {
+function getV4Signer(config: S3Config) {
   const signer = new s.SignatureV4({
-    region: appConfig.s3_config.region,
-    credentials: appConfig.s3_config.credentials,
+    region: config.region,
+    credentials: config.credentials,
     service: "s3", // TODO: get from config
     sha256: Sha256,
   });
@@ -113,8 +113,11 @@ function extractSignedHeaders(request: Request) {
  * @param req - The request to be signed.
  * @returns A new signed request.
  */
-export async function signRequestV4(req: Request) {
-  const signer = getV4Signer();
+export async function signRequestV4(
+  req: Request,
+  bucketConfig: S3BucketConfig,
+) {
+  const signer = getV4Signer(bucketConfig.config);
 
   const reqUrl = new URL(req.url);
   const crtHeaders: [string, string][] = [];
@@ -158,12 +161,15 @@ export async function signRequestV4(req: Request) {
  * @param originalRequest - The original request to verify.
  * @throws {HTTPException} - Throws an exception if the signature does not match.
  */
-export async function verifyV4Signature(originalRequest: Request) {
+export async function verifyV4Signature(
+  originalRequest: Request,
+  bucketConfig: S3BucketConfig,
+) {
   const originalSignature = extractSignature(originalRequest);
   const signableHeaders = extractSignedHeaders(originalRequest);
 
   originalRequest.headers.delete(AUTH_HEADER);
-  const signer = getV4Signer();
+  const signer = getV4Signer(bucketConfig.config);
 
   const signableRequest = await toSignableRequest(originalRequest);
 

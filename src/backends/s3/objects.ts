@@ -1,20 +1,20 @@
-import { Context, Hono } from "@hono/hono";
-import { forwardRequestWithTimeouts } from "../utils/url.ts";
-import { getLogger } from "../utils/log.ts";
-
-const api = new Hono();
+import { Context } from "@hono/hono";
+import { forwardRequestWithTimeouts } from "../../utils/url.ts";
+import { getLogger } from "../../utils/log.ts";
+import { S3BucketConfig } from "../../config/mod.ts";
 
 const logger = getLogger(import.meta);
 
-export function getObject(c: Context) {
+export function getObject(c: Context, _bucketConfig: S3BucketConfig) {
   return c.text("Not Implemented");
 }
 
-export async function listObjects(c: Context) {
-  logger.info("Proxying List Objects Request...");
+export async function listObjects(c: Context, bucketConfig: S3BucketConfig) {
+  logger.info("[S3 backend] Proxying List Objects Request...");
 
   const response = await forwardRequestWithTimeouts(
     c.req,
+    bucketConfig,
   );
 
   if (response.status !== 200) {
@@ -26,11 +26,12 @@ export async function listObjects(c: Context) {
   return response;
 }
 
-export async function putObject(c: Context) {
-  logger.info("Proxying Put Object Request...");
+export async function putObject(c: Context, bucketConfig: S3BucketConfig) {
+  logger.info("[S3 backend] Proxying Put Object Request...");
 
   const response = await forwardRequestWithTimeouts(
     c.req,
+    bucketConfig,
   );
 
   if (response.status != 200) {
@@ -42,11 +43,12 @@ export async function putObject(c: Context) {
   return response;
 }
 
-export async function deleteObject(c: Context) {
-  logger.info("Proxying Delete Object Request...");
+export async function deleteObject(c: Context, bucketConfig: S3BucketConfig) {
+  logger.info("[S3 backend] Proxying Delete Object Request...");
 
   const response = await forwardRequestWithTimeouts(
     c.req,
+    bucketConfig,
   );
 
   if (response.status != 204) {
@@ -61,5 +63,3 @@ export async function deleteObject(c: Context) {
 export function getObjectMeta(c: Context) {
   return c.text("Not Implemented");
 }
-
-export default api;

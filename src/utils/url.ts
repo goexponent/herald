@@ -1,5 +1,5 @@
 import { HonoRequest } from "@hono/hono";
-import { appConfig } from "../config/mod.ts";
+import { S3BucketConfig } from "../config/mod.ts";
 import { getLogger } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
 import { AUTH_HEADER, HOST_HEADER } from "../constants/headers.ts";
@@ -14,9 +14,10 @@ const logger = getLogger(import.meta);
  */
 export function forwardRequestWithTimeouts(
   request: HonoRequest,
+  s3Config: S3BucketConfig,
 ) {
   const forwardRequest = async () => {
-    const destUrl = new URL(appConfig.s3_config.endpoint);
+    const destUrl = new URL(s3Config.config.endpoint);
 
     const redirect = new URL(request.url);
     redirect.hostname = destUrl.hostname;
@@ -48,7 +49,7 @@ export function forwardRequestWithTimeouts(
       body: body,
     });
 
-    const signed = await signRequestV4(forwardReq);
+    const signed = await signRequestV4(forwardReq, s3Config);
 
     const newRequest = new Request(redirect, {
       method: signed.method,
@@ -63,6 +64,15 @@ export function forwardRequestWithTimeouts(
   };
 
   return retryWithExponentialBackoff(forwardRequest, 5, 100, 10000);
+}
+
+export function getBodyFromHonoReq(
+  req: HonoRequest,
+): ReadableStream<Uint8Array> | undefined {
+  const rawRequest = req.raw;
+  if (rawRequest.body) {
+    return rawRequest.body;
+  }
 }
 
 // Utility function to delay execution

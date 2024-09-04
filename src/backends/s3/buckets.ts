@@ -1,17 +1,16 @@
-import { Context, Hono } from "@hono/hono";
-import { forwardRequestWithTimeouts } from "../utils/url.ts";
-import { getLogger } from "../utils/log.ts";
-
-const api = new Hono();
-const _routerUrl = "/buckets";
+import { Context } from "@hono/hono";
+import { forwardRequestWithTimeouts } from "../../utils/url.ts";
+import { getLogger } from "../../utils/log.ts";
+import { S3BucketConfig } from "../../config/mod.ts";
 
 const logger = getLogger(import.meta);
 
-export async function createBucket(c: Context) {
-  logger.info("Proxying Create Bucket Request...");
+export async function createBucket(c: Context, bucketConfig: S3BucketConfig) {
+  logger.info("[S3 backend] Proxying Create Bucket Request...");
 
   const response = await forwardRequestWithTimeouts(
     c.req,
+    bucketConfig,
   );
 
   if (response.status != 200) {
@@ -23,12 +22,13 @@ export async function createBucket(c: Context) {
   return response;
 }
 
-export async function deleteBucket(c: Context) {
+export async function deleteBucket(c: Context, bucketConfig: S3BucketConfig) {
   // Step 1: process the request
-  logger.info("Proxying Delete Bucket Request...");
+  logger.info("[S3 backend] Proxying Delete Bucket Request...");
 
   const response = await forwardRequestWithTimeouts(
     c.req,
+    bucketConfig,
   );
 
   if (response.status != 204) {
@@ -39,5 +39,3 @@ export async function deleteBucket(c: Context) {
 
   return response;
 }
-
-export default api;

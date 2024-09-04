@@ -1,23 +1,16 @@
 import { Hono } from "@hono/hono";
 
-import objects from "./routers/objects.ts";
-import buckets from "./routers/buckets.ts";
-
+import { configInit, globalConfig } from "./config/mod.ts";
 import { getLogger, setupLoggers } from "./utils/log.ts";
-import { appConfig } from "./config/mod.ts";
-import { BUCKETS_ROUTE, OBJECTS_ROUTE } from "./constants/routes.ts";
-import { resolveHandler } from "./routers/mod.ts";
+import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 
 // setup
+await configInit();
 await setupLoggers();
 
 const app = new Hono();
 const logger = getLogger(import.meta);
-
-// routes
-app.route(OBJECTS_ROUTE, objects);
-app.route(BUCKETS_ROUTE, buckets);
 
 app.all("/*", async (c) => {
   return await resolveHandler(c);
@@ -27,11 +20,7 @@ app.all("/*", async (c) => {
 app.get("/", (c) => {
   return c.text("Proxy is running...");
 });
-app.get("/config", (c) => {
-  const logMsg = `Receieved request on ${c.req.url}`;
-  logger.info(logMsg);
-  return c.json(appConfig);
-});
+
 // TODO: automated logs for common log messages across the endpoints
 app.get("/healthcheck", (c) => {
   let logMsg = `Receieved request on ${c.req.url}`;
@@ -60,6 +49,6 @@ app.onError((err, c) => {
   return c.text("Something wrong happened in the proxy.");
 });
 
-Deno.serve({ port: appConfig.port }, app.fetch);
+Deno.serve({ port: globalConfig.port }, app.fetch);
 
 export default app;

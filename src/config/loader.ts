@@ -1,11 +1,20 @@
 import { z } from "zod";
-import { EnvVarConfig, GlobalConfig, globalConfigSchema } from "./types.ts";
+import {
+  EnvVarConfig,
+  GlobalConfig,
+  globalConfigSchema,
+  S3BucketConfig,
+  s3BucketConfigSchema,
+  SwiftBucketConfig,
+  swiftBucketConfigSchema,
+} from "./types.ts";
 import { parse } from "@std/yaml";
 import { deepMerge } from "std/collections/mod.ts";
-import { getLogger } from "../utils/log.ts";
+// import { getLogger } from "../utils/log.ts";
 import { envVarConfigSchema } from "./types.ts";
+import { globalConfig } from "./mod.ts";
 
-const logger = getLogger(import.meta);
+// const logger = getLogger(import.meta, "INFO");
 
 export class ConfigError extends Error {
   // deno-lint-ignore no-explicit-any
@@ -21,26 +30,81 @@ async function readYamlFile(yamlFilePath: string) {
 
 export async function loadConfig(): Promise<GlobalConfig> {
   const envConfig = loadEnvConfig();
-  const environment = envConfig.env;
   const yamlFilePath = envConfig.config_file_path;
 
   // deno-lint-ignore no-explicit-any
   const yamlConfig = await readYamlFile(yamlFilePath) as any;
 
-  let rawConfig;
-  if (environment === "DEV") {
-    rawConfig = yamlConfig.dev;
-  } else {
-    rawConfig = yamlConfig.prod;
-  }
+  const rawConfig = yamlConfig;
 
   const config = configOrExit(
     globalConfigSchema,
     {}, // defaults
     [rawConfig],
-  );
+  ) as GlobalConfig;
 
-  return config as GlobalConfig;
+  validateProtocol(config);
+
+  return config;
+}
+
+function validateProtocol(config: GlobalConfig) {
+  const buckets = config.buckets;
+  for (const [bucketName, bucketConfig] of Object.entries(buckets)) {
+    const backendDefinition = config.backends[bucketConfig.backend];
+    if (!backendDefinition) {
+      throw new Error(
+        `Backend Configuration missing for backend: ${bucketConfig.backend} with bucket: ${bucketName}`,
+      );
+    }
+
+    const protocol = backendDefinition.protocol;
+    if (protocol === "s3") {
+      const _parsedConfig = configOrExit(s3BucketConfigSchema, {}, [
+        bucketConfig,
+      ]);
+    } else {
+      const _parsedConfig = configOrExit(swiftBucketConfigSchema, {}, [
+        bucketConfig,
+      ]);
+    }
+  }
+}
+
+export function getBackendDef(backendName: string): {
+  protocol: "s3" | "swift";
+} | null {
+  return globalConfig.backends[backendName] ?? null;
+}
+
+export function getBucketConfig(
+  bucketName: string,
+): S3BucketConfig | SwiftBucketConfig | null {
+  const definedBuckets = globalConfig.buckets;
+  const bucketConfig = definedBuckets[bucketName];
+
+  // check if a config exits for the bucket
+  if (!bucketConfig) {
+    return null;
+  }
+
+  // get the protocol type and parse the config accordingly
+  const backendName = bucketConfig.backend;
+  const backendDef = getBackendDef(backendName);
+  if (!backendDef) {
+    return null;
+  }
+
+  const protocol = backendDef.protocol;
+  if (protocol === "s3") {
+    return configOrExit(s3BucketConfigSchema, {}, [
+      bucketConfig,
+    ]) as S3BucketConfig;
+  } else {
+    return configOrExit(swiftBucketConfigSchema, {}, [
+      bucketConfig,
+    ]) as SwiftBucketConfig;
+  }
 }
 
 export function loadEnvConfig(): EnvVarConfig {
@@ -96,11 +160,11 @@ export function configOrExit<T extends z.ZodRawShape>(
   try {
     return configOrThrow(schema, defaults, sources);
   } catch (e) {
-    logger.error("failed to parse config");
+    // logger.error("failed to parse config");
     if (e instanceof ConfigError) {
-      logger.error(e.issues);
+      // logger.error(e.issues);
     } else {
-      logger.error(e);
+      // logger.error(e);
     }
     Deno.exit(1);
   }

@@ -5,11 +5,9 @@ import {
   ListObjectsV2Command,
   S3Client,
 } from "aws-sdk/client-s3";
-import { appConfig } from "../src/config/mod.ts";
+import { getS3Config, proxyUrl } from "../src/config/mod.ts";
 
-const proxyUrl = `http://localhost:${appConfig.port}`;
-
-export function getS3Client() {
+export function getS3Client(bucketName: string) {
   // deno-lint-ignore require-await no-explicit-any
   const loggingMiddleware = (next: any) => async (args: any) => {
     const { request } = args;
@@ -26,7 +24,7 @@ export function getS3Client() {
   };
 
   const s3 = new S3Client({
-    ...appConfig.s3_config,
+    ...getS3Config(bucketName),
     endpoint: proxyUrl,
   });
   const envVar = Deno.env.get("log_level");
