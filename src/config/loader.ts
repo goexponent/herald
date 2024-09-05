@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-console
 import { z } from "zod";
 import {
   EnvVarConfig,
@@ -10,11 +11,8 @@ import {
 } from "./types.ts";
 import { parse } from "@std/yaml";
 import { deepMerge } from "std/collections/mod.ts";
-// import { getLogger } from "../utils/log.ts";
 import { envVarConfigSchema } from "./types.ts";
 import { globalConfig } from "./mod.ts";
-
-// const logger = getLogger(import.meta, "INFO");
 
 export class ConfigError extends Error {
   // deno-lint-ignore no-explicit-any
@@ -60,11 +58,11 @@ function validateProtocol(config: GlobalConfig) {
 
     const protocol = backendDefinition.protocol;
     if (protocol === "s3") {
-      const _parsedConfig = configOrExit(s3BucketConfigSchema, {}, [
+      configOrExit(s3BucketConfigSchema, {}, [
         bucketConfig,
       ]);
     } else {
-      const _parsedConfig = configOrExit(swiftBucketConfigSchema, {}, [
+      configOrExit(swiftBucketConfigSchema, {}, [
         bucketConfig,
       ]);
     }
@@ -160,11 +158,11 @@ export function configOrExit<T extends z.ZodRawShape>(
   try {
     return configOrThrow(schema, defaults, sources);
   } catch (e) {
-    // logger.error("failed to parse config");
+    console.error("failed to parse config");
     if (e instanceof ConfigError) {
-      // logger.error(e.issues);
+      console.error(e.issues);
     } else {
-      // logger.error(e);
+      console.error(e);
     }
     Deno.exit(1);
   }

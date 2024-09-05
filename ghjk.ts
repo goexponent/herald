@@ -70,6 +70,15 @@ const ghjk = file({
         await $.raw`docker compose down --remove-orphans --volumes`;
       }
     }
+  },
+
+
+  "build-proxy": {
+    desc: "Rebuild the proxy docker image",
+    async fn($) {
+      await $.raw`docker-compose build --no-cache proxy`;
+      await $.raw`docker-compose up -d --force-recreate`;
+    }
   }
 
     },

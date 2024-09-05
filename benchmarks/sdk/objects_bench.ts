@@ -11,6 +11,15 @@ import { getRandomInt, getRandomUUID } from "../../src/utils/crypto.ts";
 import { Upload } from "aws-sdk/lib-storage";
 
 const bucketName = "bench";
+const s3Config = {
+  credentials: {
+    accessKeyId: "minio",
+    secretAccessKey: "password",
+  },
+  endpoint: "http://localhost:8000",
+  region: "local",
+  forcePathStyle: true,
+};
 
 export async function uploadMultipleFiles(s3: S3Client, bucketName: string) {
   const numOfFiles = getRandomInt(20, 30);
@@ -36,7 +45,7 @@ Deno.bench("upload whole object", async (b) => {
   const filePath = await createTempFile(5); // 5 MB file
   const file = await Deno.readFile(filePath);
   const fileName = basename(filePath);
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   await setupBucket(s3, bucketName);
 
@@ -55,7 +64,7 @@ Deno.bench("upload whole object", async (b) => {
 });
 
 const uploadInChunk = async (fileSizeInMb: number, b: Deno.BenchContext) => {
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   await setupBucket(s3, bucketName);
 
@@ -103,7 +112,7 @@ Deno.bench("upload object with chunk: 5MB", async (b) => {
 // });
 
 Deno.bench("List Objects", async (b) => {
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   await setupBucket(s3, bucketName);
   await uploadMultipleFiles(s3, bucketName);
@@ -115,7 +124,7 @@ Deno.bench("List Objects", async (b) => {
 });
 
 Deno.bench("Get Object", async (b) => {
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   const { stream: fileStream, fileName, size } = await createTempStream(2);
 
@@ -142,7 +151,7 @@ Deno.bench("Get Object", async (b) => {
 });
 
 Deno.bench("Delete Object", async (b) => {
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   const { stream: fileStream, fileName, size } = await createTempStream(2);
 

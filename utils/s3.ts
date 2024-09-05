@@ -4,10 +4,10 @@ import {
   DeleteObjectCommand,
   ListObjectsV2Command,
   S3Client,
+  S3ClientConfig,
 } from "aws-sdk/client-s3";
-import { getS3Config, proxyUrl } from "../src/config/mod.ts";
 
-export function getS3Client(bucketName: string) {
+export function getS3Client(config: S3ClientConfig) {
   // deno-lint-ignore require-await no-explicit-any
   const loggingMiddleware = (next: any) => async (args: any) => {
     const { request } = args;
@@ -24,8 +24,7 @@ export function getS3Client(bucketName: string) {
   };
 
   const s3 = new S3Client({
-    ...getS3Config(bucketName),
-    endpoint: proxyUrl,
+    ...config,
   });
   const envVar = Deno.env.get("log_level");
   const debug = envVar === "DEBUG";

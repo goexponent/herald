@@ -9,7 +9,7 @@ buckets:
   s3-test:
     backend: minio_s3
     config:
-      endpoint: "http://localhost:9000"
+      endpoint: "http://minio:9000"
       region: local
       forcePathStyle: true
       credentials:
@@ -18,8 +18,8 @@ buckets:
   swift_test:
     backend: openstack_swift
     config:
-      auth_url: "http://localhost:8080/auth/v1.0"
-      storage_url: "http://localhost:8080"
+      auth_url: "http://swift:8080/auth/v1.0"
+      storage_url: "http://swift:8080"
       credentials:
         username: "test:tester"
         password: "testing"

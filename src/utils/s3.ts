@@ -1,5 +1,3 @@
-import { S3 } from "aws-sdk/client-s3";
-import { getS3Config } from "../config/mod.ts";
 import { HonoRequest } from "@hono/hono";
 import {
   methodSchema,
@@ -7,10 +5,6 @@ import {
   URLFormatStyle,
   urlFormatStyle,
 } from "./types.ts";
-
-export function getS3Client(bucketName: string) {
-  return new S3(getS3Config(bucketName));
-}
 
 function extractMethod(request: HonoRequest) {
   const parseResult = methodSchema.safeParse(request.method);

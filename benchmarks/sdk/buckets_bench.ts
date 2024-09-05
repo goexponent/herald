@@ -3,8 +3,18 @@ import { CreateBucketCommand, DeleteBucketCommand } from "aws-sdk/client-s3";
 
 const bucketName = "bench";
 
+const s3Config = {
+  credentials: {
+    accessKeyId: "minio",
+    secretAccessKey: "password",
+  },
+  endpoint: "http://localhost:8000",
+  region: "local",
+  forcePathStyle: true,
+};
+
 Deno.bench("Create Bucket", async (b) => {
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   await deleteBucketIfExists(s3, bucketName);
 
@@ -21,7 +31,7 @@ Deno.bench("Create Bucket", async (b) => {
 });
 
 Deno.bench("Delete Bucket", async (b) => {
-  const s3 = getS3Client(bucketName);
+  const s3 = getS3Client(s3Config);
 
   await deleteBucketIfExists(s3, bucketName);
   const createBucket = new CreateBucketCommand({
