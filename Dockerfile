@@ -1,6 +1,4 @@
-FROM denoland/deno:alpine-1.38.3
-
-RUN apk update && apk add curl && curl -fsSL https://deno.land/x/install/install.sh | sh && mv /root/.deno/bin/deno /bin/deno
+FROM denoland/deno:alpine-1.46.3
 
 WORKDIR /app
 

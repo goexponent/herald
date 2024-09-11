@@ -1,0 +1,27 @@
+include:
+  - project: 'devops/gitlab-ci-templates'
+    ref: main
+    file: 'docker.yml'
+  - project: 'devops/gitlab-ci-templates'
+    ref: main
+    file: 'terraform.yml'
+
+docker:
+  extends: .docker
+  variables:
+    DOCKER_EXTRA_ARGS: |
+      --build-arg RELEASE
+  only:
+    - merge_requests
+    - main
+
+terraform:
+  extends: .terraform
+  needs:
+    - docker
+  only:
+    - main
+  variables:
+    KUBE_CTX: 'expo-test'
+  environment:
+    name: staging

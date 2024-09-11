@@ -14,6 +14,8 @@ services:
 
   swift:
     image: openstackswift/saio:latest
+    platform: linux/amd64
+    restart: unless-stopped
     ports:
       - "8080:8080"
 
@@ -23,6 +25,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    platform: linux/amd64
+    restart: unless-stopped
     environment:
       CONFIG_FILE_PATH: "herald-compose.yaml"
     volumes:

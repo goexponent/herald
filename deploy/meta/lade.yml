@@ -1,0 +1,5 @@
+^tofu:
+  GITLAB_TOKEN: op://exponent.1password.eu/Private/gitlab_token/password
+  CLOUDFLARE_API_TOKEN: op://exponent.1password.eu/Infra-onboarding/cloudflare_token/password
+  TF_HTTP_USERNAME: op://exponent.1password.eu/Private/gitlab_token/username
+  TF_HTTP_PASSWORD: op://exponent.1password.eu/Private/gitlab_token/password
