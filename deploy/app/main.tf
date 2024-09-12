@@ -4,7 +4,7 @@ module "config" {
 
 variable "TAG" {
   type    = string
-  default = "latest"
+  default = "config-proxy-docker-file-240912-102540-fa3cc51a"
 }
 
 module "web" {

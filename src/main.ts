@@ -13,26 +13,32 @@ const app = new Hono();
 const logger = getLogger(import.meta);
 
 app.all("/*", async (c) => {
+  const path = c.req.path;
+  if (path === "/health-check") {
+    let logMsg = `Receieved request on ${c.req.url}`;
+    logger.info(logMsg);
+
+    // TODO: thorough health check,
+
+    const healthStatus = "Ok";
+    logMsg = `Health Check Complete: ${healthStatus}`;
+
+    logger.info(logMsg);
+    return c.text(healthStatus, 200);
+  } else if (path === "/") {
+    let logMsg = `Receieved request on ${c.req.url}`;
+    logger.info(logMsg);
+
+    // TODO: thorough health check,
+
+    const healthStatus = "Ok";
+    logMsg = `Health Check Complete: ${healthStatus}`;
+
+    logger.info(logMsg);
+    return c.text(healthStatus, 200);
+  }
+
   return await resolveHandler(c);
-});
-
-// misc
-app.get("/", (c) => {
-  return c.text("Proxy is running...");
-});
-
-// TODO: automated logs for common log messages across the endpoints
-app.get("/healthcheck", (c) => {
-  let logMsg = `Receieved request on ${c.req.url}`;
-  logger.info(logMsg);
-
-  // TODO: thorough health check,
-
-  const healthStatus = "Ok";
-  logMsg = `Health Check Complete: ${healthStatus}`;
-
-  logger.info(logMsg);
-  return c.text(healthStatus, 200);
 });
 
 app.notFound((c) => {
