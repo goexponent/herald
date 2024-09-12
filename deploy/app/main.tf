@@ -15,7 +15,7 @@ module "web" {
   chart     = "./chart-generic"
   tag       = var.TAG
   timeout   = 60
-  debug     = false
+  debug     = true
 
   values = <<EOF
 image:
@@ -51,7 +51,7 @@ ingress:
 containerPort: 8000
 
 extraEnv:
-  - name: CONFIG_FILE_PATH:
+  - name: CONFIG_FILE_PATH
     value: "herald-compose.yaml"
 
 livenessProbe:
