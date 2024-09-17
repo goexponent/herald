@@ -1,3 +1,16 @@
+locals {
+  # os_password = var.TF_VAR_HERALD_S3_PASSWORD
+
+  s3_host       = "minio"
+  s3_port       = "9000"
+  s3_region     = "us-east-1"
+  s3_access_key = var.MINIO_ACCESS_KEY
+  s3_secret_key = var.MINIO_SECRET_KEY
+  s3_root_password = var.MINIO_ROOT_PASSWORD
+
+  namespace = module.config.values.namespace
+}
+
 module "config" {
   source = "./.."
 }
