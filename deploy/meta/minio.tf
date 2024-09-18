@@ -6,6 +6,9 @@ resource "helm_release" "minio" {
 
   namespace  = local.namespace
 
+  timeout = 60
+  wait    = true
+
   values = [
     <<EOF
 image:
@@ -18,9 +21,7 @@ mode: standalone
 disableWebUI: false
 
 auth:
-  rootPassword: ${local.minio_root_password}
-  accessKey: ${local.minio_access_key}
-  secretKey: ${local.minio_secret_key}
+  rootPassword: ${local.s3_root_password}
 
 extraEnvVars:
   - name: MINIO_HTTP_TRACE
@@ -38,21 +39,33 @@ persistence:
 
 apiIngress:
   enabled: false
+
+gateway:
+  enabled: true
+  type: s3
+  replicaCount: 1
+  updateStrategy:
+    type: RollingUpdate
+  auth:
+    s3:
+      accessKey: ${local.s3_access_key}
+      secretKey: ${local.s3_secret_key}
+      serviceEndpoint: https://s3-minio-herald.pub1.infomaniak.cloud
 EOF
   ]
 
-  set {
-    name  = "auth.rootPassword"
-    value = local.minio_root_password
-  }
+  # set {
+  #   name  = "auth.rootPassword"
+  #   value = local.s3_root_password
+  # }
 
-  set {
-    name  = "auth.accessKey"
-    value = local.minio_access_key
-  }
+  # set {
+  #   name  = "auth.accessKey"
+  #   value = local.s3_access_key
+  # }
 
-  set {
-    name  = "auth.secretKey"
-    value = local.minio_secret_key
-  }
+  # set {
+  #   name  = "auth.secretKey"
+  #   value = local.s3_secret_key
+  # }
 }

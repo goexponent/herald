@@ -2,6 +2,8 @@
   GITLAB_TOKEN: op://exponent.1password.eu/Private/gitlab_token/password
   CLOUDFLARE_API_TOKEN: op://exponent.1password.eu/Infra-onboarding/cloudflare_token/password
   # TF_VAR_HERALD_S3_PASSWORD: op://exponent.1password.eu/Infra-Onboarding/Openstack s3-gitlab/password
-  MINIO_ACCESS_KEY: op://exponent.1password.eu/Private/minio_token/username
-  MINIO_SECRET_KEY: op://exponent.1password.eu/Private/minio_token/password
-  MINIO_ROOT_PASSWORD: op://exponent.1password.eu/Private/minio_root_token/password
+  TF_VAR_MINIO_ACCESS_KEY: op://exponent.1password.eu/Private/minio_token/username
+  TF_VAR_MINIO_SECRET_KEY: op://exponent.1password.eu/Private/minio_token/password
+  TF_VAR_MINIO_ROOT_PASSWORD: op://exponent.1password.eu/Private/minio_root_token/password
+  TF_HTTP_USERNAME: op://exponent.1password.eu/Private/gitlab_token/username
+  TF_HTTP_PASSWORD: op://exponent.1password.eu/Private/gitlab_token/password

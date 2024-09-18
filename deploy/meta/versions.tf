@@ -39,6 +39,17 @@ provider "kubernetes" {
   config_context = "expo-test"
 }
 
+provider "helm" {
+  kubernetes {
+    config_path = "~/.kube/config"
+    config_context = "expo-test"
+  }
+
+  experiments {
+    manifest = true
+  }
+}
+
 provider "gitlab" {
   base_url = module.config.values.gitlab
 }
