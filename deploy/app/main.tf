@@ -4,14 +4,14 @@ module "config" {
 
 variable "TAG" {
   type    = string
-  default = "latest"
+  default = "registry.exponent.ch/expo/s3-herald:config-proxy-docker-file-240924-160437-8a17b923"
 }
 
 module "web" {
   source = "git::https://gitlab.exponent.ch/devops/tf-modules.git//helm?ref=main"
 
   namespace = module.config.values.namespace
-  name      = "web"
+  name      = "s3-herald-dev"
   chart     = "./chart-generic"
   tag       = var.TAG
   timeout   = 60
@@ -52,7 +52,7 @@ containerPort: 8000
 
 extraEnv:
   - name: CONFIG_FILE_PATH
-    value: "herald-compose.yaml"
+    value: "/etc/config/herald-dev.yaml"
 
 livenessProbe:
   httpGet:
@@ -63,5 +63,57 @@ readinessProbe:
   httpGet:
     path: /health-check
     port: http
+
+volumes:
+  - name: config-volume
+    configMap:
+      name: herald-config
+
+volumeMounts:
+  - name: config-volume
+    mountPath: /etc/config # Mounting the ConfigMap at /etc/config
+    subPath: "herald-dev.yaml"
   EOF
+}
+
+resource "kubernetes_config_map" "app_config" {
+  metadata {
+    name      = "herald-config"
+    namespace = module.config.values.namespace
+  }
+
+  data = {
+    "herald-dev.yaml" = <<EOF
+port: 8000
+temp_dir: "./tmp"
+backends:
+  minio_s3:
+    protocol: s3
+  openstack_swift:
+    protocol: swift
+buckets:
+  s3-test:
+    backend: minio_s3
+    config:
+      endpoint: "http://minio:9000"
+      region: local
+      forcePathStyle: true
+      credentials:
+        accessKeyId: minio
+        secretAccessKey: password
+  swift-test:
+    backend: openstack_swift
+    config:
+      auth_url: "http://swift:8080/auth/v1.0"
+      storage_url: "http://swift:8080"
+      credentials:
+        username: "test:tester"
+        password: "testing"
+        project_name: "your-project-name"
+        user_domain_name: "Default"
+        project_domain_name: "Default"
+      container: "your-container-name"
+
+EOF
+  }
 }
