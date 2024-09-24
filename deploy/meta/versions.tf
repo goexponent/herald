@@ -54,10 +54,10 @@ provider "gitlab" {
   base_url = module.config.values.gitlab
 }
 
-# provider "openstack" {
-#   auth_url = "https://api.pub1.infomaniak.cloud/identity"
-#   tenant_name   = "PCP-RP63UPV"
-#   user_name     = "PCU-RP63UPV"
-#   # checkov:skip=CKV_OPENSTACK_1
-#   password = local.os_password
-# }
+provider "openstack" {
+  auth_url    = local.os_identity
+  tenant_name = local.os_tenant
+  user_name   = local.os_user
+  # checkov:skip=CKV_OPENSTACK_1
+  password = local.os_password
+}

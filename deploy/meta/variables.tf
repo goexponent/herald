@@ -10,3 +10,7 @@ variable "MINIO_SECRET_KEY" {
 variable "MINIO_ROOT_PASSWORD" {
   type = string
 }
+
+variable "OS_PASSWORD" {
+  type = string
+}

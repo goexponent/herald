@@ -7,3 +7,6 @@
   TF_VAR_MINIO_ROOT_PASSWORD: op://exponent.1password.eu/Private/minio_root_token/password
   TF_HTTP_USERNAME: op://exponent.1password.eu/Private/gitlab_token/username
   TF_HTTP_PASSWORD: op://exponent.1password.eu/Private/gitlab_token/password
+  AWS_ACCESS_KEY_ID: p://exponent.1password.eu/Private/minio_token/username
+  AWS_SECRET_ACCESS_KEY: op://exponent.1password.eu/Private/minio_token/password
+  TF_VAR_OS_PASSWORD: op://exponent.1password.eu/Infra-onboarding/Openstack s3-herald/password

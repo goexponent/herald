@@ -15,7 +15,7 @@ import { proxyUrl } from "../../src/config/mod.ts";
 import { Upload } from "aws-sdk/lib-storage";
 import { createTempFile, createTempStream } from "../../utils/file.ts";
 
-const containerName = "swift_test";
+const containerName = "swift-test";
 
 const s3 = new S3Client({
   ...testConfig,

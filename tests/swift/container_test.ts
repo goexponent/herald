@@ -8,7 +8,7 @@ import { loggingMiddleware, testConfig } from "../utils/mod.ts";
 import { proxyUrl } from "../../src/config/mod.ts";
 import { deleteBucketIfExists } from "../../utils/s3.ts";
 
-const containerName = "swift_test";
+const containerName = "swift-test";
 
 const s3 = new S3Client({
   ...testConfig,
