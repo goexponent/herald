@@ -6,7 +6,7 @@ resource "helm_release" "minio" {
 
   namespace  = local.namespace
 
-  timeout = 60
+  timeout = 90
   wait    = true
 
   values = [
@@ -14,7 +14,7 @@ resource "helm_release" "minio" {
 image:
   registry: docker.io
   repository: bitnami/minio
-  tag: 2022.2.7-debian-10-r0
+  tag: latest
   pullPolicy: IfNotPresent
 
 mode: standalone
