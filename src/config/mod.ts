@@ -20,7 +20,10 @@ export let proxyUrl: string;
 
 export async function configInit() {
   globalConfig = await loadConfig();
-  envVarsConfig = loadEnvConfig();
+  envVarsConfig = loadEnvConfig({
+    sentry_sample_rate: 1,
+    sentry_traces_sample_rate: 1,
+  });
   proxyUrl = `http://localhost:${globalConfig.port}`;
 }
 

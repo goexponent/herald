@@ -9,15 +9,15 @@ import {
   PutObjectCommand,
   S3Client,
 } from "aws-sdk/client-s3";
-import { createTempFile, createTempStream } from "../../utils/file.ts";
+import { createTempFile, createTempStream } from "../../../utils/file.ts";
 import { assert } from "std/assert/assert.ts";
-import { setupBucket } from "../../utils/s3.ts";
+import { setupBucket } from "../../../utils/s3.ts";
 import { Upload } from "aws-sdk/lib-storage";
-import { getS3Client } from "../../src/utils/s3.ts";
+import { getS3Client } from "../../../src/utils/s3.ts";
 
 const filePath = await createTempFile(1); // 1MB
 
-const bucket = "s3-bucket";
+const bucket = "s3-test";
 const objectKey = path.basename(filePath);
 
 const s3 = getS3Client(bucket);

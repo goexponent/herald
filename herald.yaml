@@ -6,16 +6,27 @@ backends:
   openstack_swift:
     protocol: swift
 buckets:
-  s3_test:
+  s3-test:
     backend: minio_s3
     config:
       endpoint: "http://localhost:9000"
       region: local
       forcePathStyle: true
+      bucket: s3-test
       credentials:
         accessKeyId: minio
         secretAccessKey: password
-  swift_test:
+  iac-s3:
+    backend: minio_s3
+    config:
+      endpoint: "http://localhost:9000"
+      region: local
+      forcePathStyle: true
+      bucket: iac-s3
+      credentials:
+        accessKeyId: minio
+        secretAccessKey: password
+  swift-test:
     backend: openstack_swift
     config:
       auth_url: "http://localhost:8080/auth/v1.0"
@@ -23,7 +34,7 @@ buckets:
       credentials:
         username: "test:tester"
         password: "testing"
-        project_name: "your-project-name"
+        project_name: "PCP-RP63UPV"
         user_domain_name: "Default"
         project_domain_name: "Default"
       container: "your-container-name"

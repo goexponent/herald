@@ -6,14 +6,18 @@ import { basename } from "std/path/mod.ts";
  * @param sizeInMB - The size of the file to create in megabytes.
  * @returns The path to the created temporary file.
  */
-export async function createTempFile(sizeInMB: number): Promise<string> {
+export async function createTempFile(
+  sizeInMB: number,
+  path: string | undefined,
+): Promise<string> {
   const sizeInBytes = sizeInMB * 1024 * 1024;
 
-  const tempFile = await Deno.makeTempFile();
+  const tempFile = await Deno.makeTempFile({
+    dir: path,
+  });
 
   const buffer = new Uint8Array(1024 * 1024); // 1 MB buffer
   for (let i = 0; i < buffer.length; i++) {
-    // const randByteVal = getRandomInt(0, 255);
     const randByteVal = 2;
     buffer[i] = randByteVal;
   }
@@ -46,13 +50,15 @@ export interface FileStream {
  * Creates a temporary stream with the specified size in megabytes.
  *
  * @param sizeInMb - The size of the temporary stream in megabytes. Default is 5.
+ * @param fileName - The name of the temporary file. Default is "temp_file".
  * @returns A promise that resolves to a FileStream object containing the stream, file name, and size.
  */
 export async function createTempStream(
   sizeInMb = 5,
+  fileName = "temp_file",
 ): Promise<FileStream> {
-  const filePath = await createTempFile(sizeInMb);
-  const fileName = basename(filePath);
+  const filePath = await createTempFile(sizeInMb, undefined);
+  const actualFileName = `${fileName}_${basename(filePath)}`;
   const fileInfo = await Deno.stat(filePath);
   const size = fileInfo.size;
 
@@ -65,7 +71,7 @@ export async function createTempStream(
 
   return {
     stream,
-    fileName,
+    fileName: actualFileName,
     size,
   } as FileStream;
 }

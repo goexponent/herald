@@ -9,13 +9,13 @@ import {
 } from "aws-sdk/client-s3";
 import * as path from "std/path/mod.ts";
 import { assert, assertEquals } from "std/assert/mod.ts";
-import { loggingMiddleware, testConfig } from "../utils/mod.ts";
-import { deleteBucketIfExists, setupBucket } from "../../utils/s3.ts";
-import { proxyUrl } from "../../src/config/mod.ts";
+import { loggingMiddleware, testConfig } from "../../utils/mod.ts";
+import { deleteBucketIfExists, setupBucket } from "../../../utils/s3.ts";
+import { proxyUrl } from "../../../src/config/mod.ts";
 import { Upload } from "aws-sdk/lib-storage";
-import { createTempFile, createTempStream } from "../../utils/file.ts";
+import { createTempFile, createTempStream } from "../../../utils/file.ts";
 
-const containerName = "swift_test";
+const containerName = "swift-test";
 
 const s3 = new S3Client({
   ...testConfig,
@@ -111,4 +111,39 @@ Deno.test(async function streamUpload() {
 
   const res = await upload.done();
   assertEquals(201, res.$metadata.httpStatusCode);
+});
+
+Deno.test(async function nonExistingBucketListObject(t) {
+  await t.step(async function cleanup() {
+    await deleteBucketIfExists(s3, containerName);
+  });
+
+  const listCmd = new ListObjectsV2Command({
+    Bucket: containerName,
+  });
+
+  try {
+    // expected to fail
+    const _ = await s3.send(listCmd);
+  } catch (error) {
+    assertEquals(404, error.$metadata.httpStatusCode);
+  }
+});
+
+Deno.test(async function emptyBucketListObject(t) {
+  await t.step(async function setup() {
+    await setupBucket(s3, containerName);
+  });
+
+  const listCmd = new ListObjectsV2Command({
+    Bucket: containerName,
+  });
+
+  const res = await s3.send(listCmd);
+  assertEquals(res.KeyCount, 0);
+  assertEquals(200, res.$metadata.httpStatusCode);
+
+  await t.step(async function setup() {
+    await deleteBucketIfExists(s3, containerName);
+  });
 });
