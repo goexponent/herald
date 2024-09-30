@@ -1,5 +1,5 @@
-import { S3 } from "aws-sdk/client-s3";
-import { getS3Config } from "../config/mod.ts";
+import { S3Client } from "aws-sdk/client-s3";
+import { envVarsConfig, getS3Config, proxyUrl } from "../config/mod.ts";
 import { HonoRequest } from "@hono/hono";
 import {
   methodSchema,
@@ -9,7 +9,34 @@ import {
 } from "./types.ts";
 
 export function getS3Client(bucketName: string) {
-  return new S3(getS3Config(bucketName));
+  // deno-lint-ignore require-await no-explicit-any
+  const loggingMiddleware = (next: any) => async (args: any) => {
+    const { request } = args;
+    // deno-lint-ignore no-console
+    console.log("Request Details:", {
+      url:
+        `${request.protocol}//${request.hostname}:${request.port}${request.path}`,
+      method: request.method,
+      hostname: request.hostname,
+      path: request.path,
+      headers: request.headers,
+    });
+    return next(args);
+  };
+
+  const s3 = new S3Client({
+    ...getS3Config(bucketName).config,
+    endpoint: proxyUrl,
+  });
+  const envVar = envVarsConfig.log_level;
+  const debug = envVar === "DEBUG";
+  if (debug) {
+    s3.middlewareStack.add(loggingMiddleware, {
+      step: "finalizeRequest",
+    });
+  }
+
+  return s3;
 }
 
 function extractMethod(request: HonoRequest) {
@@ -23,6 +50,7 @@ function extractMethod(request: HonoRequest) {
   return method;
 }
 
+// FIXME: fails for "0.0.0.0" kinds of DNS format
 function extractBucketName(request: HonoRequest): string | undefined {
   const urlFormat = getUrlFormat(request);
 
@@ -88,12 +116,14 @@ export function extractRequestInfo(request: HonoRequest): RequestMeta {
   const objectKey = bucketName ? extractObjectKey(request) : null;
   const urlFormat = getUrlFormat(request);
   const method = extractMethod(request);
+  const queryParams = request.queries();
 
   const reqMeta: RequestMeta = {
     bucket: bucketName,
     objectKey,
     urlFormat,
     method,
+    queryParams,
   };
 
   return reqMeta;

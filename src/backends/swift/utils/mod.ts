@@ -38,10 +38,12 @@ export async function toS3XmlContent(
 
   // Transform the parsed body to match S3 XML format
   const data = parsedBody.container;
+  const items = getContent(data);
   const s3FormattedBody = {
     ListBucketResult: {
       Name: data["$"].name,
-      Contents: getContent(data),
+      Contents: items,
+      KeyCount: items.length,
     },
   };
 

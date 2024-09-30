@@ -3,6 +3,9 @@ import { S3BucketConfig } from "../config/mod.ts";
 import { getLogger } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
 import { AUTH_HEADER, HOST_HEADER } from "../constants/headers.ts";
+import { HTTPException } from "../types/http-exception.ts";
+import { s3ReqParams } from "../constants/query-params.ts";
+import { createXmlErrorResponse } from "./error.ts";
 
 const logger = getLogger(import.meta);
 
@@ -12,7 +15,7 @@ const logger = getLogger(import.meta);
  * @param request - The request to be forwarded.
  * @returns A promise that resolves to the response of the forwarded request.
  */
-export function forwardRequestWithTimeouts(
+export async function forwardRequestWithTimeouts(
   request: HonoRequest,
   s3Config: S3BucketConfig,
 ) {
@@ -63,7 +66,13 @@ export function forwardRequestWithTimeouts(
     return clonedResponse;
   };
 
-  return retryWithExponentialBackoff(forwardRequest, 5, 100, 10000);
+  return await retryWithExponentialBackoff(
+    forwardRequest,
+    5,
+    100,
+    10000,
+    s3Config.config.bucket,
+  );
 }
 
 export function getBodyFromHonoReq(
@@ -81,21 +90,26 @@ function delay(ms: number): Promise<void> {
 }
 
 // Function to handle exponential backoff retries
-async function retryWithExponentialBackoff<T>(
+export async function retryWithExponentialBackoff<T>(
   fn: () => Promise<T>,
   retries = 5,
   initialDelay = 100,
-  maxDelay = 10000,
+  maxDelay = 1000,
+  resource: string,
 ): Promise<T> {
   let attempt = 0;
   let delayDuration = initialDelay;
+  let err;
 
   while (attempt < retries) {
     try {
       return await fn();
     } catch (error) {
       if (attempt >= retries - 1) {
-        throw error;
+        logger.critical(error);
+        err = error;
+        attempt++;
+        // FIXME: throw error;
       }
 
       await delay(delayDuration);
@@ -104,6 +118,22 @@ async function retryWithExponentialBackoff<T>(
     }
   }
 
-  // TODO: replace with HTTPException
-  throw new Error("Exhausted all retries");
+  const errResponse = createXmlErrorResponse(err, 502, resource);
+  throw new HTTPException(errResponse.status, {
+    res: errResponse,
+  });
+}
+
+export function areQueryParamsSupported(queryParams: string[]): boolean {
+  for (const param of queryParams) {
+    if (!s3ReqParams.has(param)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function formatParams(queryParams: string[]): string {
+  return queryParams.join(", ");
 }

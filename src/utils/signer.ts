@@ -123,8 +123,9 @@ export async function signRequestV4(
   const crtHeaders: [string, string][] = [];
   const unsignedHeaders = [
     "accept",
-    "accept-encoding",
+    // "accept-encoding",
     "accept-language",
+    "content-length",
   ];
   const headersRecord: Record<string, string> = {};
   req.headers.forEach((val, key) => {
@@ -150,6 +151,7 @@ export async function signRequestV4(
     method: signed.method,
     headers: signed.headers,
     body: req.body,
+    redirect: undefined,
   });
 
   return newReq;

@@ -1,13 +1,32 @@
 import { Hono } from "@hono/hono";
 
-import { configInit, globalConfig } from "./config/mod.ts";
+import { configInit, envVarsConfig, globalConfig } from "./config/mod.ts";
 import { getLogger, setupLoggers } from "./utils/log.ts";
 import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
+import * as Sentry from "sentry";
 
 // setup
 await configInit();
 await setupLoggers();
+
+// Sentry setup
+Sentry.init({
+  dsn: envVarsConfig.sentry_dsn,
+  release: envVarsConfig.version,
+  environment: envVarsConfig.env === "DEV" ? "development" : "production",
+  sampleRate: envVarsConfig.sentry_sample_rate,
+  tracesSampleRate: envVarsConfig.sentry_traces_sample_rate,
+  // integrations: [
+  //   new Sentry.Integrations.Context({
+  //     app: true,
+  //     os: true,
+  //     device: true,
+  //     culture: true,
+  //   }),
+  // ],
+  debug: true,
+});
 
 const app = new Hono();
 const logger = getLogger(import.meta);
