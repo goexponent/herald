@@ -9,6 +9,7 @@ resource "helm_release" "minio" {
   timeout = 60
   wait    = true
 
+# https://github.com/bitnami/charts/blob/main/bitnami/minio/values.yaml
   values = [
     <<EOF
 image:
