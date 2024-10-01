@@ -6,7 +6,6 @@ locals {
   s3_region     = "us-east-1"
   s3_access_key = var.MINIO_ACCESS_KEY
   s3_secret_key = var.MINIO_SECRET_KEY
-  s3_root_password = var.MINIO_ROOT_PASSWORD
 
   os_identity = "https://api.pub1.infomaniak.cloud/identity"
   os_tenant   = "PCP-RP63UPV"

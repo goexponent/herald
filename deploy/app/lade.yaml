@@ -1,0 +1,5 @@
+^tofu:
+  AWS_ACCESS_KEY_ID: op://exponent.1password.eu/Private/minio_token/username
+  AWS_SECRET_ACCESS_KEY: op://exponent.1password.eu/Private/minio_token/password
+  TF_VAR_MINIO_ACCESS_KEY: op://exponent.1password.eu/Private/minio_token/username
+  TF_VAR_MINIO_SECRET_KEY: op://exponent.1password.eu/Private/minio_token/password

@@ -2,9 +2,16 @@ module "config" {
   source = "./.."
 }
 
+locals {
+  s3_host       = "minio"
+  s3_region     = "local"
+  s3_access_key = var.MINIO_ACCESS_KEY
+  s3_secret_key = var.MINIO_SECRET_KEY
+}
+
 variable "TAG" {
   type    = string
-  default = "registry.exponent.ch/expo/s3-herald:config-proxy-docker-file-240924-160437-8a17b923"
+  default = "config-proxy-docker-file-240924-172536-27182429"
 }
 
 module "web" {
@@ -52,7 +59,7 @@ containerPort: 8000
 
 extraEnv:
   - name: CONFIG_FILE_PATH
-    value: "/etc/config/herald-dev.yaml"
+    value: /app/herald-dev.yaml
 
 livenessProbe:
   httpGet:
@@ -64,19 +71,24 @@ readinessProbe:
     path: /health-check
     port: http
 
+volumeMounts:
+  - name: config-volume
+    mountPath: /app/herald-dev.yaml
+    subPath: herald-dev.yaml
+    readOnly: true
+
 volumes:
   - name: config-volume
     configMap:
       name: herald-config
+      items:
+        - key: "herald-dev.yaml"
+          path: "herald-dev.yaml"
 
-volumeMounts:
-  - name: config-volume
-    mountPath: /etc/config # Mounting the ConfigMap at /etc/config
-    subPath: "herald-dev.yaml"
-  EOF
+EOF
 }
 
-resource "kubernetes_config_map" "app_config" {
+resource "kubernetes_config_map" "herald-config" {
   metadata {
     name      = "herald-config"
     namespace = module.config.values.namespace
@@ -95,24 +107,34 @@ buckets:
   s3-test:
     backend: minio_s3
     config:
-      endpoint: "http://minio:9000"
-      region: local
+      endpoint: "minio.s3-herald"
+      region: ${local.s3_region}
       forcePathStyle: true
       credentials:
-        accessKeyId: minio
-        secretAccessKey: password
+        accessKeyId: ${local.s3_access_key}
+        secretAccessKey: ${local.s3_secret_key}
+  iac-s3:
+    backend: minio_s3
+    config:
+      endpoint: "minio.s3-herald"
+      region: ${local.s3_region}
+      forcePathStyle: true
+      bucket: iac-s3
+      credentials:
+        accessKeyId: ${local.s3_access_key}
+        secretAccessKey: ${local.s3_secret_key}
   swift-test:
     backend: openstack_swift
     config:
-      auth_url: "http://swift:8080/auth/v1.0"
-      storage_url: "http://swift:8080"
+      auth_url: "https://s3.pub1.infomaniak.cloud/identity"
+      storage_url: "https://s3.pub1.infomaniak.cloud"
       credentials:
-        username: "test:tester"
-        password: "testing"
+        username: ${local.s3_access_key}
+        password: ${local.s3_secret_key}
         project_name: "your-project-name"
         user_domain_name: "Default"
         project_domain_name: "Default"
-      container: "your-container-name"
+      container: "swift-test"
 
 EOF
   }
