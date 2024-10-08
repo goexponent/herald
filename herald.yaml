@@ -37,4 +37,4 @@ buckets:
         project_name: "PCP-RP63UPV"
         user_domain_name: "Default"
         project_domain_name: "Default"
-      container: "your-container-name"
+      container: swift-test

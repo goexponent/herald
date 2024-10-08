@@ -33,28 +33,18 @@ const logger = getLogger(import.meta);
 
 app.all("/*", async (c) => {
   const path = c.req.path;
+  let logMsg = `Receieved request on ${c.req.url}`;
+  logger.info(logMsg);
+
   if (path === "/health-check") {
-    let logMsg = `Receieved request on ${c.req.url}`;
-    logger.info(logMsg);
-
     // TODO: thorough health check,
-
     const healthStatus = "Ok";
     logMsg = `Health Check Complete: ${healthStatus}`;
 
     logger.info(logMsg);
     return c.text(healthStatus, 200);
   } else if (path === "/") {
-    let logMsg = `Receieved request on ${c.req.url}`;
-    logger.info(logMsg);
-
-    // TODO: thorough health check,
-
-    const healthStatus = "Ok";
-    logMsg = `Health Check Complete: ${healthStatus}`;
-
-    logger.info(logMsg);
-    return c.text(healthStatus, 200);
+    return c.text("Proxy is running...", 200);
   }
 
   return await resolveHandler(c);
