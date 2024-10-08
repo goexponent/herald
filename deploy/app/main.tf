@@ -59,7 +59,7 @@ containerPort: 8000
 
 extraEnv:
   - name: CONFIG_FILE_PATH
-    value: /app/herald-dev.yaml
+    value: /etc/herald/herald-dev.yaml
 
 livenessProbe:
   httpGet:
@@ -72,25 +72,25 @@ readinessProbe:
     port: http
 
 volumeMounts:
-  - name: config-volume
-    mountPath: /app/herald-dev.yaml
-    subPath: herald-dev.yaml
+  - name: herald
+    mountPath: /etc/herald/
     readOnly: true
 
 volumes:
-  - name: config-volume
+  - name: herald
     configMap:
-      name: herald-config
-      items:
-        - key: "herald-dev.yaml"
-          path: "herald-dev.yaml"
-
+      name: herald
 EOF
+
+
+depends_on = [
+    kubernetes_config_map.herald
+  ]
 }
 
-resource "kubernetes_config_map" "herald-config" {
+resource "kubernetes_config_map" "herald" {
   metadata {
-    name      = "herald-config"
+    name      = "herald"
     namespace = module.config.values.namespace
   }
 
