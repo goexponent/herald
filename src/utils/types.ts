@@ -1,6 +1,6 @@
 import * as z from "zod";
 
-const HttpMethod = z.enum(["GET", "POST", "PUT", "DELETE"]);
+const HttpMethod = z.enum(["GET", "POST", "PUT", "DELETE", "HEAD"]);
 export type HttpMethod = z.infer<typeof HttpMethod>;
 export const methodSchema = z.string().transform((val) => {
   const upperVal = val.toUpperCase();
@@ -15,6 +15,7 @@ export const requestMeta = z.object({
   objectKey: z.string().nullable().optional(),
   method: HttpMethod,
   urlFormat: urlFormatStyle,
+  queryParams: z.record(z.array(z.string())),
 });
 export type RequestMeta = z.infer<typeof requestMeta>;
 

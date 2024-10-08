@@ -12,6 +12,17 @@ buckets:
       endpoint: "http://localhost:9000"
       region: local
       forcePathStyle: true
+      bucket: s3-test
+      credentials:
+        accessKeyId: minio
+        secretAccessKey: password
+  iac-s3:
+    backend: minio_s3
+    config:
+      endpoint: "http://localhost:9000"
+      region: local
+      forcePathStyle: true
+      bucket: iac-s3
       credentials:
         accessKeyId: minio
         secretAccessKey: password
@@ -23,7 +34,7 @@ buckets:
       credentials:
         username: "test:tester"
         password: "testing"
-        project_name: "your-project-name"
+        project_name: "PCP-RP63UPV"
         user_domain_name: "Default"
         project_domain_name: "Default"
       container: "your-container-name"

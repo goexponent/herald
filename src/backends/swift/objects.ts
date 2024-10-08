@@ -3,9 +3,10 @@ import { SwiftBucketConfig } from "../../config/mod.ts";
 import { getLogger } from "../../utils/log.ts";
 import { extractRequestInfo } from "../../utils/mod.ts";
 import { HTTPException } from "../../types/http-exception.ts";
-import { getAuthToken, getSwiftRequestHeaders } from "./auth.ts";
+import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
 import { getBodyFromHonoReq } from "../../utils/url.ts";
 import { toS3XmlContent } from "./utils/mod.ts";
+import { NoSuchBucketException } from "../../constants/errors.ts";
 
 const logger = getLogger(import.meta);
 
@@ -22,13 +23,12 @@ export async function putObject(
     });
   }
 
-  const { storageUrl: swiftUrl, token: authToken } = await getAuthToken(
-    bucketConfig.config,
-  );
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(
+      bucketConfig.config,
+    );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
-
-  logger.debug;
 
   const response = await fetch(reqUrl, {
     method: "PUT",
@@ -58,9 +58,10 @@ export async function getObject(
     });
   }
 
-  const { storageUrl: swiftUrl, token: authToken } = await getAuthToken(
-    bucketConfig.config,
-  );
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(
+      bucketConfig.config,
+    );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -92,14 +93,15 @@ export async function deleteObject(
     });
   }
 
-  const { storageUrl: swiftUrl, token: authToken } = await getAuthToken(
-    bucketConfig.config,
-  );
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(
+      bucketConfig.config,
+    );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
   const response = await fetch(reqUrl, {
-    method: "Delete",
+    method: "DELETE",
     headers: headers,
     body: getBodyFromHonoReq(c.req),
   });
@@ -126,9 +128,10 @@ export async function listObjects(
     });
   }
 
-  const { storageUrl: swiftUrl, token: authToken } = await getAuthToken(
-    bucketConfig.config,
-  );
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(
+      bucketConfig.config,
+    );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -138,14 +141,15 @@ export async function listObjects(
     body: getBodyFromHonoReq(c.req),
   });
 
-  const formattedResponse = await toS3XmlContent(response);
   if (response.status === 404) {
     // TODO: return here if not found, returns in html format even if Accept set to xml
     logger.warn(`Get List of Objects Failed: ${response.statusText}`);
+    throw NoSuchBucketException();
   } else {
     logger.info(`Get List of Objects Successful: ${response.statusText}`);
   }
 
+  const formattedResponse = await toS3XmlContent(response);
   return formattedResponse;
 }
 
@@ -162,9 +166,10 @@ export async function getObjectMeta(
     });
   }
 
-  const { storageUrl: swiftUrl, token: authToken } = await getAuthToken(
-    bucketConfig.config,
-  );
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(
+      bucketConfig.config,
+    );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -181,4 +186,43 @@ export async function getObjectMeta(
   }
 
   return response;
+}
+
+export async function headObject(
+  c: Context,
+  bucketConfig: SwiftBucketConfig,
+): Promise<Response> {
+  logger.info("[Swift backend] Proxying Head Object Request...");
+
+  const { bucket, objectKey } = extractRequestInfo(c.req);
+  if (!bucket || !objectKey) {
+    throw new HTTPException(404, {
+      message: "Bucket or object information missing from the request",
+    });
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(bucketConfig.config);
+  const headers = getSwiftRequestHeaders(authToken);
+  const reqUrl = `${swiftUrl}/${bucket}/${objectKey}`;
+
+  const response = await fetch(reqUrl, {
+    method: "HEAD",
+    headers: headers,
+  });
+
+  if (response.status >= 300) {
+    logger.warn(`Head object Failed: ${response.statusText}`);
+    throw new HTTPException(response.status, { message: response.statusText });
+  }
+
+  logger.info(`Head object Successful: ${response.statusText}`);
+
+  // Create a new response with only the headers
+  const headResponse = new Response(null, {
+    status: response.status,
+    headers: response.headers,
+  });
+
+  return headResponse;
 }

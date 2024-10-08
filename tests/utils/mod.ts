@@ -1,6 +1,7 @@
 import { S3ClientConfig } from "aws-sdk/client-s3";
+import * as path from "std/path/mod.ts";
 
-export const testDir = "tests/";
+export const testDir = path.join(Deno.cwd(), "tests/");
 
 // deno-lint-ignore require-await no-explicit-any
 export const loggingMiddleware = (next: any) => async (args: any) => {

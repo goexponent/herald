@@ -6,10 +6,16 @@ import {
   listObjects,
   putObject,
 } from "./objects.ts";
-import { createBucket, deleteBucket } from "./buckets.ts";
+import {
+  createBucket,
+  deleteBucket,
+  headBucket,
+  routeQueryParamedRequest,
+} from "./buckets.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { S3BucketConfig } from "../../config/types.ts";
 import { extractRequestInfo } from "../../utils/mod.ts";
+import { areQueryParamsSupported } from "../../utils/url.ts";
 
 const handlers = {
   putObject,
@@ -19,35 +25,53 @@ const handlers = {
   createBucket,
   deleteBucket,
   listObjects,
+  routeQueryParamedRequest,
+  headBucket,
 };
 
 export async function s3Resolver(
   c: Context,
   bucketConfig: S3BucketConfig,
 ) {
-  const { method, objectKey } = extractRequestInfo(c.req);
+  const { method, objectKey, queryParams } = extractRequestInfo(c.req);
+  const queryParamKeys = Object.keys(queryParams);
 
   switch (method) {
     case "GET":
       if (objectKey) {
         return await handlers.getObject(c, bucketConfig);
-      } else {
+      } else if (queryParams["list-type"]) {
         return await handlers.listObjects(c, bucketConfig);
       }
+
+      if (!areQueryParamsSupported(queryParamKeys)) {
+        throw new HTTPException(400, {
+          message: "Unsupported Query Parameter Used",
+        });
+      }
+      return await handlers.routeQueryParamedRequest(
+        c,
+        bucketConfig,
+        queryParamKeys,
+      );
     case "POST":
-      break;
+      throw new HTTPException(405, {
+        message: "Method Not Allowed",
+      });
     case "PUT":
       if (objectKey) {
         return await handlers.putObject(c, bucketConfig);
-      } else {
-        return await handlers.createBucket(c, bucketConfig);
       }
+
+      return await handlers.createBucket(c, bucketConfig);
     case "DELETE":
       if (objectKey) {
         return await handlers.deleteObject(c, bucketConfig);
-      } else {
-        return await handlers.deleteBucket(c, bucketConfig);
       }
+
+      return await handlers.deleteBucket(c, bucketConfig);
+    case "HEAD":
+      return await handlers.headBucket(c, bucketConfig);
     default:
       throw new HTTPException(400, { message: "Unsupported Request" });
   }

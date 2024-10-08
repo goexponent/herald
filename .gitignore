@@ -140,6 +140,8 @@ crash.log
 .terragrunt-cache
 
 ############################
-# Miscellaneous
+# Others
 ############################
 *tshscript.sh
+tests/**/.terraform.lock.hcl
+examples/**/.terraform.lock.hcl

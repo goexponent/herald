@@ -7,7 +7,7 @@ const backendSchema = z.object({
 export const s3ConfigSchema = z.object({
   endpoint: z.string(),
   region: z.string(),
-  bucket: z.string().optional(),
+  bucket: z.string(),
   forcePathStyle: z.boolean(),
   credentials: z.object({
     accessKeyId: z.string(),
@@ -66,5 +66,11 @@ export const envVarConfigSchema = z.object({
     .optional(),
   env: z.enum(["DEV", "PROD"]).default("DEV"),
   config_file_path: z.string().default("herald.yaml"),
+  version: z.string().default("0.1"),
+  sentry_dsn: z.string().optional(),
+  sentry_sample_rate: z.coerce.number().positive().min(0).max(1).default(1),
+  sentry_traces_sample_rate: z.coerce.number().positive().min(0).max(1).default(
+    1,
+  ),
 });
 export type EnvVarConfig = z.infer<typeof envVarConfigSchema>;

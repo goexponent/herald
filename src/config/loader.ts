@@ -1,4 +1,3 @@
-// deno-lint-ignore-file no-console
 import { z } from "zod";
 import {
   EnvVarConfig,
@@ -13,6 +12,9 @@ import { parse } from "@std/yaml";
 import { deepMerge } from "std/collections/mod.ts";
 import { envVarConfigSchema } from "./types.ts";
 import { globalConfig } from "./mod.ts";
+import { red } from "std/fmt/colors.ts";
+
+// const logger = getLogger(import.meta, "INFO");
 
 export class ConfigError extends Error {
   // deno-lint-ignore no-explicit-any
@@ -105,13 +107,15 @@ export function getBucketConfig(
   }
 }
 
-export function loadEnvConfig(): EnvVarConfig {
+export function loadEnvConfig(
+  defaults: Partial<EnvVarConfig> = {},
+): EnvVarConfig {
   const envVars = Object.keys(envVarConfigSchema.shape)
     .map((k) => k.toUpperCase());
 
   const config = configOrExit(
     envVarConfigSchema,
-    {},
+    defaults,
     [
       Object.fromEntries(
         envVars
@@ -158,11 +162,14 @@ export function configOrExit<T extends z.ZodRawShape>(
   try {
     return configOrThrow(schema, defaults, sources);
   } catch (e) {
-    console.error("failed to parse config");
+    // deno-lint-ignore no-console
+    console.error(red("failed to parse config"));
     if (e instanceof ConfigError) {
-      console.error(e.issues);
+      // deno-lint-ignore no-console
+      console.error(red(Deno.inspect(e.issues)));
     } else {
-      console.error(e);
+      // deno-lint-ignore no-console
+      console.error(red(e));
     }
     Deno.exit(1);
   }

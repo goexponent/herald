@@ -11,6 +11,7 @@
     "@aws-crypto/sha256": "https://esm.sh/@aws-crypto/sha256-js@5.2.0",
     "@std/yaml": "jsr:@std/yaml@^0.224.3",
     "swift-client": "https://esm.sh/openstack-swift-client@2.3.1",
-    "xml2js": "https://esm.sh/xml2js@0.6.2"
+    "xml2js": "https://esm.sh/xml2js@0.6.2",
+    "sentry": "https://deno.land/x/sentry@8.32.0/index.mjs"
   }
 }
