@@ -24,6 +24,7 @@ module "web" {
   timeout   = 60
   debug     = true
 
+# https://gitlab.exponent.ch/devops/chart-generic/-/blob/main/values.yaml?ref_type=heads
   values = <<EOF
 image:
   repository: ${module.config.values.registry}/${module.config.values.gitlab_project}
