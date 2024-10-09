@@ -11,7 +11,7 @@ locals {
 
 variable "TAG" {
   type    = string
-  default = "config-proxy-docker-file-240924-172536-27182429"
+  default = "config-proxy-docker-file-241009-002925-b3e11013"
 }
 
 module "web" {
@@ -107,16 +107,17 @@ buckets:
   s3-test:
     backend: minio_s3
     config:
-      endpoint: "minio.s3-herald"
+      endpoint: http://minio:9000
       region: ${local.s3_region}
       forcePathStyle: true
+      bucket: s3-test
       credentials:
         accessKeyId: ${local.s3_access_key}
         secretAccessKey: ${local.s3_secret_key}
   iac-s3:
     backend: minio_s3
     config:
-      endpoint: "minio.s3-herald"
+      endpoint: http://minio:9000
       region: ${local.s3_region}
       forcePathStyle: true
       bucket: iac-s3
@@ -128,6 +129,7 @@ buckets:
     config:
       auth_url: "https://s3.pub1.infomaniak.cloud/identity"
       storage_url: "https://s3.pub1.infomaniak.cloud"
+      bucket: swift-test
       credentials:
         username: ${local.s3_access_key}
         password: ${local.s3_secret_key}
