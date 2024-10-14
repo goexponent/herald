@@ -28,6 +28,7 @@ import {
 } from "./buckets.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { extractRequestInfo } from "../../utils/mod.ts";
+import { getLogger } from "../../utils/log.ts";
 
 const handlers = {
   putObject,
@@ -41,6 +42,7 @@ const handlers = {
   headObject,
 };
 
+const logger = getLogger(import.meta);
 export async function swiftResolver(
   c: Context,
   bucketConfig: SwiftBucketConfig,
@@ -78,9 +80,12 @@ export async function swiftResolver(
         return getBucketObjectLock(c, bucketConfig);
       case "tagging":
         return await getBucketTagging(c, bucketConfig);
+      // ignore these as they will be handled as regular request below
       case "x-id":
+      case "list-type":
         break;
       default:
+        logger.critical(`Unsupported query parameter: ${queryParam}`);
         throw new HTTPException(400, {
           message: "Unsupported query parameter",
         });

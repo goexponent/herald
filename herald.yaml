@@ -30,7 +30,6 @@ buckets:
     backend: openstack_swift
     config:
       auth_url: "http://localhost:8080/auth/v1.0"
-      storage_url: "http://localhost:8080"
       credentials:
         username: "test:tester"
         password: "testing"
@@ -38,3 +37,4 @@ buckets:
         user_domain_name: "Default"
         project_domain_name: "Default"
       container: swift-test
+      region: local

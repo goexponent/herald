@@ -7,6 +7,12 @@ locals {
   s3_region     = "local"
   s3_access_key = var.MINIO_ACCESS_KEY
   s3_secret_key = var.MINIO_SECRET_KEY
+  openstack_auth_url = "https://api.pub1.infomaniak.cloud/identity/v3"
+  openstack_username = var.OPENSTACK_USERNAME
+  openstack_password = var.OPENSTACK_PASSWORD
+  openstack_user_domain_name = "Default"
+  openstack_project_domain_name = "Default"
+  swift_region = "dc3-a"
 }
 
 variable "TAG" {
@@ -108,7 +114,7 @@ buckets:
   s3-test:
     backend: minio_s3
     config:
-      endpoint: http://minio:9000
+      endpoint: http://minio.s3-herald:9000
       region: ${local.s3_region}
       forcePathStyle: true
       bucket: s3-test
@@ -128,16 +134,15 @@ buckets:
   swift-test:
     backend: openstack_swift
     config:
-      auth_url: "https://s3.pub1.infomaniak.cloud/identity"
-      storage_url: "https://s3.pub1.infomaniak.cloud"
-      bucket: swift-test
+      auth_url: ${local.openstack_auth_url}
       credentials:
-        username: ${local.s3_access_key}
-        password: ${local.s3_secret_key}
-        project_name: "your-project-name"
-        user_domain_name: "Default"
-        project_domain_name: "Default"
+        username: ${local.openstack_username}
+        password: ${local.openstack_password}
+        project_name: ${local.openstack_username}
+        user_domain_name: ${local.openstack_user_domain_name}
+        project_domain_name: ${local.openstack_project_domain_name}
       container: "swift-test"
+      region: ${local.swift_region}
 
 EOF
   }

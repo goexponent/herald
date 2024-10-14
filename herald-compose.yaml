@@ -19,11 +19,11 @@ buckets:
     backend: openstack_swift
     config:
       auth_url: "http://swift:8080/auth/v1.0"
-      storage_url: "http://swift:8080"
       credentials:
         username: "test:tester"
         password: "testing"
         project_name: "your-project-name"
         user_domain_name: "Default"
         project_domain_name: "Default"
-      container: "your-container-name"
+      container: "swift-test"
+      region: local

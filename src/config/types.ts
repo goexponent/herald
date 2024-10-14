@@ -24,8 +24,8 @@ export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
 
 export const swiftConfigSchema = z.object({
   auth_url: z.string(),
-  storage_url: z.string(),
   container: z.string(),
+  region: z.string(),
   credentials: z.object({
     username: z.string(),
     password: z.string(),
