@@ -18,7 +18,7 @@ locals {
 
 variable "TAG" {
   type    = string
-  default = "config-proxy-docker-file-241014-174336-61c1d5dd"
+  default = "config-proxy-docker-file-241014-180045-73b811ff"
 }
 
 module "web" {

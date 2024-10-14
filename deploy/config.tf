@@ -11,7 +11,7 @@ output "values" {
     gitlab = "https://gitlab.exponent.ch"
     dns = {
       "selfserved.cloud" : {
-        "herald.selfserved.cloud" : "selfserved.cloud",
+        "s3.herald.selfserved.cloud" : "selfserved.cloud",
       },
     }
   }

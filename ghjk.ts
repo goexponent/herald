@@ -66,6 +66,7 @@ const ghjk = file({
 
       if (arg === "up") {
         await $.raw`docker compose up -d --remove-orphans`;
+        console.log("It might take some time for the proxy to download dependencies based on your internet speed")
       } else {
         await $.raw`docker compose down --remove-orphans --volumes`;
       }
