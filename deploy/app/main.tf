@@ -10,6 +10,7 @@ locals {
   openstack_auth_url = "https://api.pub1.infomaniak.cloud/identity/v3"
   openstack_username = var.OPENSTACK_USERNAME
   openstack_password = var.OPENSTACK_PASSWORD
+  openstack_project_name = "PCP-RP63UPV"
   openstack_user_domain_name = "Default"
   openstack_project_domain_name = "Default"
   swift_region = "dc3-a"
@@ -138,7 +139,7 @@ buckets:
       credentials:
         username: ${local.openstack_username}
         password: ${local.openstack_password}
-        project_name: ${local.openstack_username}
+        project_name: ${local.openstack_project_name}
         user_domain_name: ${local.openstack_user_domain_name}
         project_domain_name: ${local.openstack_project_domain_name}
       container: "swift-test"

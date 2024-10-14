@@ -34,7 +34,7 @@ const logger = getLogger(import.meta);
 app.all("/*", async (c) => {
   const path = c.req.path;
   let logMsg = `Receieved request on ${c.req.url}`;
-  logger.info(logMsg);
+  logger.debug(logMsg);
 
   if (path === "/health-check") {
     // TODO: thorough health check,
