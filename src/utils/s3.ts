@@ -106,7 +106,8 @@ function getUrlFormat(request: HonoRequest): URLFormatStyle {
   // For domain names, check if it's in the format "bucket-name.s3.amazonaws.com"
   const domainParts = hostWithoutPort.split(".");
   if (
-    domainParts.length >= 3 && domainParts[0] !== "s3" &&
+    domainParts.length >= 3 &&
+    (domainParts[0] !== "s3" && domainParts[0] !== "herald") &&
     domainParts[domainParts.length - 3] !== "www"
   ) {
     return urlFormatStyle.Values.VirtualHosted;
