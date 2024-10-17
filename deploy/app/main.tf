@@ -14,11 +14,57 @@ locals {
   openstack_user_domain_name = "Default"
   openstack_project_domain_name = "Default"
   swift_region = "dc3-a"
+
+  herald_config = <<EOF
+port: 8000
+temp_dir: "./tmp"
+backends:
+  minio_s3:
+    protocol: s3
+  openstack_swift:
+    protocol: swift
+buckets:
+  s3-test:
+    backend: minio_s3
+    config:
+      endpoint: http://minio.s3-herald:9000
+      region: ${local.s3_region}
+      forcePathStyle: true
+      bucket: s3-test
+      credentials:
+        accessKeyId: ${local.s3_access_key}
+        secretAccessKey: ${local.s3_secret_key}
+  iac-s3:
+    backend: minio_s3
+    config:
+      endpoint: http://minio:9000
+      region: ${local.s3_region}
+      forcePathStyle: true
+      bucket: iac-s3
+      credentials:
+        accessKeyId: ${local.s3_access_key}
+        secretAccessKey: ${local.s3_secret_key}
+  swift-test:
+    backend: openstack_swift
+    config:
+      auth_url: ${local.openstack_auth_url}
+      credentials:
+        username: ${local.openstack_username}
+        password: ${local.openstack_password}
+        project_name: ${local.openstack_project_name}
+        user_domain_name: ${local.openstack_user_domain_name}
+        project_domain_name: ${local.openstack_project_domain_name}
+      container: "swift-test"
+      region: ${local.swift_region}
+
+EOF
+
+  herald_checksum = sha256(local.herald_config)
 }
 
 variable "TAG" {
   type    = string
-  default = "config-proxy-docker-file-241014-180045-73b811ff"
+  default = "latest"
 }
 
 module "web" {
@@ -29,7 +75,7 @@ module "web" {
   chart     = "./chart-generic"
   tag       = var.TAG
   timeout   = 60
-  debug     = true
+  debug     = false
 
 # https://gitlab.exponent.ch/devops/chart-generic/-/blob/main/values.yaml?ref_type=heads
   values = <<EOF
@@ -41,6 +87,8 @@ imagePullSecrets:
 
 deploymentAnnotations:
   secrets.infisical.com/auto-reload: "true"
+  configmap-checksum: "${local.herald_checksum}"
+
 
 ingress:
   enabled: true
@@ -103,48 +151,6 @@ resource "kubernetes_config_map" "herald" {
   }
 
   data = {
-    "herald-dev.yaml" = <<EOF
-port: 8000
-temp_dir: "./tmp"
-backends:
-  minio_s3:
-    protocol: s3
-  openstack_swift:
-    protocol: swift
-buckets:
-  s3-test:
-    backend: minio_s3
-    config:
-      endpoint: http://minio.s3-herald:9000
-      region: ${local.s3_region}
-      forcePathStyle: true
-      bucket: s3-test
-      credentials:
-        accessKeyId: ${local.s3_access_key}
-        secretAccessKey: ${local.s3_secret_key}
-  iac-s3:
-    backend: minio_s3
-    config:
-      endpoint: http://minio:9000
-      region: ${local.s3_region}
-      forcePathStyle: true
-      bucket: iac-s3
-      credentials:
-        accessKeyId: ${local.s3_access_key}
-        secretAccessKey: ${local.s3_secret_key}
-  swift-test:
-    backend: openstack_swift
-    config:
-      auth_url: ${local.openstack_auth_url}
-      credentials:
-        username: ${local.openstack_username}
-        password: ${local.openstack_password}
-        project_name: ${local.openstack_project_name}
-        user_domain_name: ${local.openstack_user_domain_name}
-        project_domain_name: ${local.openstack_project_domain_name}
-      container: "swift-test"
-      region: ${local.swift_region}
-
-EOF
+    "herald-dev.yaml" = local.herald_config
   }
 }

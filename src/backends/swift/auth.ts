@@ -104,7 +104,7 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
     )?.url;
 
     if (token == null) {
-      throw new HTTPException(500, {
+      throw new HTTPException(400, {
         message:
           "Error Authenticating to Open Stack Server: x-subject-token header is null",
       });

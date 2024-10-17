@@ -6,7 +6,7 @@ resource "openstack_objectstorage_container_v1" "preprod" {
 
 resource "openstack_identity_ec2_credential_v3" "preprod" {}
 
-output "out" {
+output "bucket_details" {
   value = {
     endpoint              = "https://s3.pub1.infomaniak.cloud"
     bucket                = local.bucket

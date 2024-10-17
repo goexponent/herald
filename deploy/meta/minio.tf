@@ -42,17 +42,6 @@ persistence:
 apiIngress:
   enabled: false
 
-gateway:
-  enabled: true
-  type: s3
-  replicaCount: 1
-  updateStrategy:
-    type: RollingUpdate
-  auth:
-    s3:
-      accessKey: ${local.s3_access_key}
-      secretKey: ${local.s3_secret_key}
-      serviceEndpoint: https://s3-minio-herald.pub1.infomaniak.cloud
 EOF
   ]
 }
