@@ -3,6 +3,7 @@ import { z } from "zod";
 const backendSchema = z.object({
   protocol: z.enum(["s3", "swift"]),
 });
+export type Backend = z.infer<typeof backendSchema>;
 
 export const s3ConfigSchema = z.object({
   endpoint: z.string(),
@@ -43,7 +44,8 @@ export const backupSwiftConfigSchema = z.object({
 export const backupConfigSchema = z.array(z.union([
   backupS3ConfigSchema,
   backupSwiftConfigSchema,
-]));
+])).optional();
+export type BackupConfig = z.infer<typeof backupConfigSchema>;
 
 export const s3BucketConfigSchema = z.object({
   backend: z.string(),

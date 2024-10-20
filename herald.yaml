@@ -50,6 +50,19 @@ buckets:
       credentials:
         accessKeyId: minio
         secretAccessKey: password
+    backups:
+      - name: swift-test-backup
+        backend: openstack_swift
+        config:
+          auth_url: https://api.pub1.infomaniak.cloud/identity/v3
+          credentials:
+            username: "test:tester"
+            password: "testing"
+            project_name: "PCP-RP63UPV"
+            user_domain_name: Default
+            project_domain_name: Default
+          container: "swift-backup-test"
+          region: local
   swift-test:
     backend: openstack_swift
     config:
@@ -62,3 +75,14 @@ buckets:
         project_domain_name: "Default"
       container: swift-test
       region: local
+    backups:
+      - name: s3-test-backup
+        backend: minio_s3
+        config:
+          endpoint: "http://localhost:9000"
+          region: local
+          forcePathStyle: true
+          bucket: s3-backup-test
+          credentials:
+            accessKeyId: minio
+            secretAccessKey: password
