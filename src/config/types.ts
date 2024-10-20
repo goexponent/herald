@@ -16,12 +16,6 @@ export const s3ConfigSchema = z.object({
 });
 export type S3Config = z.infer<typeof s3ConfigSchema>;
 
-export const s3BucketConfigSchema = z.object({
-  backend: z.string(),
-  config: s3ConfigSchema,
-});
-export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
-
 export const swiftConfigSchema = z.object({
   auth_url: z.string(),
   container: z.string(),
@@ -36,9 +30,32 @@ export const swiftConfigSchema = z.object({
 });
 export type SwiftConfig = z.infer<typeof swiftConfigSchema>;
 
+export const backupS3ConfigSchema = z.object({
+  backend: z.string(),
+  config: s3ConfigSchema,
+});
+
+export const backupSwiftConfigSchema = z.object({
+  backend: z.string(),
+  config: swiftConfigSchema,
+});
+
+export const backupConfigSchema = z.array(z.union([
+  backupS3ConfigSchema,
+  backupSwiftConfigSchema,
+]));
+
+export const s3BucketConfigSchema = z.object({
+  backend: z.string(),
+  config: s3ConfigSchema,
+  backups: backupConfigSchema,
+});
+export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
+
 export const swiftBucketConfigSchema = z.object({
   backend: z.string(),
   config: swiftConfigSchema,
+  backups: backupConfigSchema,
 });
 export type SwiftBucketConfig = z.infer<typeof swiftBucketConfigSchema>;
 
