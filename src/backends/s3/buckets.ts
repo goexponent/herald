@@ -9,8 +9,8 @@ export async function createBucket(c: Context, bucketConfig: S3BucketConfig) {
   logger.info("[S3 backend] Proxying Create Bucket Request...");
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status != 200) {
@@ -26,8 +26,8 @@ export async function deleteBucket(c: Context, bucketConfig: S3BucketConfig) {
   logger.info("[S3 backend] Proxying Delete Bucket Request...");
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status != 204) {
@@ -48,8 +48,8 @@ export async function routeQueryParamedRequest(
   logger.info(`[S3 backend] Proxying Get Bucket ${formattedParams} Request...`);
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status != 200) {
@@ -70,8 +70,8 @@ export async function headBucket(
   logger.info(`[S3 backend] Proxying Head Bucket Request...`);
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status != 200) {

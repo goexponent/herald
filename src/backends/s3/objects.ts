@@ -2,6 +2,7 @@ import { Context } from "@hono/hono";
 import { forwardRequestWithTimeouts } from "../../utils/url.ts";
 import { getLogger } from "../../utils/log.ts";
 import { S3BucketConfig } from "../../config/mod.ts";
+import { prepareMirrorRequests } from "../mirror.ts";
 
 const logger = getLogger(import.meta);
 
@@ -13,8 +14,8 @@ export async function listObjects(c: Context, bucketConfig: S3BucketConfig) {
   logger.info("[S3 backend] Proxying List Objects Request...");
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status !== 200) {
@@ -30,14 +31,15 @@ export async function putObject(c: Context, bucketConfig: S3BucketConfig) {
   logger.info("[S3 backend] Proxying Put Object Request...");
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status != 200) {
     logger.warn(`Put Object Failed: ${response.statusText}`);
   } else {
     logger.info(`Put Object Successful: ${response.statusText}`);
+    await prepareMirrorRequests(c, bucketConfig, "putObject");
   }
 
   return response;
@@ -47,8 +49,8 @@ export async function deleteObject(c: Context, bucketConfig: S3BucketConfig) {
   logger.info("[S3 backend] Proxying Delete Object Request...");
 
   const response = await forwardRequestWithTimeouts(
-    c.req,
-    bucketConfig,
+    c.req.raw,
+    bucketConfig.config,
   );
 
   if (response.status != 204) {

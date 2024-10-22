@@ -2,7 +2,9 @@ import { z } from "zod";
 import {
   Backend,
   BackupConfig,
+  BackupS3Config,
   backupS3ConfigSchema,
+  BackupSwiftConfig,
   backupSwiftConfigSchema,
   EnvVarConfig,
   GlobalConfig,
@@ -53,7 +55,7 @@ export async function loadConfig(): Promise<GlobalConfig> {
 }
 
 function validateBackupProvidersConfig(
-  backupConfigs: BackupConfig,
+  backupConfigs: BackupConfig[],
   backendConfigs: Record<string, Backend>,
   bucketName: string,
 ) {
@@ -74,6 +76,44 @@ function validateBackupProvidersConfig(
         backupConfig,
       ]);
     }
+  }
+}
+
+function configToString(
+  config:
+    | BackupS3Config
+    | BackupSwiftConfig
+    | S3BucketConfig
+    | SwiftBucketConfig,
+) {
+  if (config.typ === "BackupS3Config" || config.typ === "S3BucketConfig") {
+    const conf = config.config;
+    return `${conf.endpoint}-${conf.region}-${conf.bucket}`;
+  }
+
+  const conf = config.config;
+  return `${conf.auth_url}-${conf.region}-${conf.credentials.project_name}-${conf.container}`;
+}
+
+function checkDuplicateBackupConfig(
+  bucketConfig: S3BucketConfig | SwiftBucketConfig,
+  bucketName: string,
+) {
+  const backups = bucketConfig.backups;
+  if (!backups) {
+    return;
+  }
+
+  const configs = new Set<string>();
+  configs.add(configToString(bucketConfig));
+  for (const backup of backups) {
+    const configStr = configToString(backup);
+    if (configs.has(configStr)) {
+      throw new Error(
+        `Invalid Config: Duplicate providers found for ${bucketName}`,
+      );
+    }
+    configs.add(configStr);
   }
 }
 
@@ -104,6 +144,7 @@ function validateProtocol(config: GlobalConfig) {
           config.backends,
           bucketName,
         );
+        checkDuplicateBackupConfig(bucketConfig, bucketName);
       }
     }
   }
