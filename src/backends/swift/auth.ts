@@ -1,3 +1,4 @@
+import { OPENSTACK_AUTH_TOKEN_HEADER } from "./../../constants/headers.ts";
 import { SwiftConfig } from "../../config/types.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { getLogger } from "../../utils/log.ts";
@@ -5,25 +6,74 @@ import { retryWithExponentialBackoff } from "../../utils/url.ts";
 
 const logger = getLogger(import.meta);
 
+export interface ServiceCatalog {
+  endpoints: OpenStackEndpoint[];
+  type: string;
+  id: string;
+  name: string;
+}
+
+export interface OpenStackEndpoint {
+  id: string;
+  interface: "public" | "admin" | "internal";
+  region: string;
+  region_id: string;
+  url: string;
+}
+
 export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
   storageUrl: string;
   token: string;
 }> {
   const getAuthToken = async () => {
-    const { auth_url, credentials } = config;
-    const { username, password } = credentials;
+    const { auth_url, credentials, region } = config;
+    const {
+      username,
+      password,
+      project_name: projectName,
+      user_domain_name: userDomainName,
+      project_domain_name: projectDomainName,
+    } = credentials;
 
     logger.info("Fetching Authorization Token From Swift Server");
     logger.info("Fetching Storage URL From Swift Server");
 
-    const response = await fetch(auth_url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-auth-user": username,
-        "x-auth-key": password,
+    const requestBody = JSON.stringify({
+      auth: {
+        identity: {
+          methods: ["password"],
+          password: {
+            user: {
+              name: username,
+              domain: { name: userDomainName },
+              password: password,
+            },
+          },
+        },
+        scope: {
+          project: {
+            domain: { name: projectDomainName },
+            name: projectName, // Replace with your actual project name
+          },
+        },
       },
     });
+
+    const response = await fetch(`${auth_url}/auth/tokens`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: requestBody,
+    });
+
+    if (response.status === 300) {
+      logger.warn("Multiple choices available for the requested resource.");
+      const choices = response.headers.get("location");
+      logger.info(`Available choices: ${choices}`);
+      // Optionally, implement logic to handle multiple choices
+      throw new HTTPException(response.status, { res: response });
+    }
 
     if (!response.ok) {
       logger.warn(
@@ -33,11 +83,43 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
     }
     logger.info("Authorization Token and Storage URL retrieved Successfully");
 
-    const storageUrl = response.headers.get("x-storage-url") as string;
-    const token = response.headers.get("x-auth-token") as string;
+    const responseBody = await response.json();
+    const token = response.headers.get(OPENSTACK_AUTH_TOKEN_HEADER);
 
-    // TODO: cache the auth-token and storage url per username and password
-    logger.debug(`Retrieved token ${token} and storage url ${storageUrl}`);
+    const serviceCatalog = responseBody.token.catalog as ServiceCatalog[];
+
+    const storageService = serviceCatalog.find((service) =>
+      service.type === "object-store" // 'object-store' is the type for the Swift service
+    );
+
+    if (storageService === undefined) {
+      throw new HTTPException(404, {
+        message: "Object Store Service not found in OpenStack Server",
+      });
+    }
+
+    // Typically you'll retrieve the publicURL of the storage service
+    const storageUrl = storageService.endpoints.find((endpoint) =>
+      endpoint.region === region && endpoint.interface === "public"
+    )?.url;
+
+    if (token == null) {
+      throw new HTTPException(400, {
+        message:
+          "Error Authenticating to Open Stack Server: x-subject-token header is null",
+      });
+    }
+
+    if (storageUrl === undefined) {
+      throw new HTTPException(404, {
+        message: "Storage URL not found in OpenStack Server",
+      });
+    }
+
+    logger.info("Authorization Token and Storage URL retrieved Successfully");
+    logger.debug(
+      `Retrieved token ${token} and storage url ${storageUrl}`,
+    );
 
     return { storageUrl, token };
   };

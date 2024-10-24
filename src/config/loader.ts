@@ -10,7 +10,6 @@ import {
 } from "./types.ts";
 import { parse } from "@std/yaml";
 import { deepMerge } from "std/collections/mod.ts";
-// import { getLogger } from "../utils/log.ts";
 import { envVarConfigSchema } from "./types.ts";
 import { globalConfig } from "./mod.ts";
 import { red } from "std/fmt/colors.ts";
@@ -61,11 +60,11 @@ function validateProtocol(config: GlobalConfig) {
 
     const protocol = backendDefinition.protocol;
     if (protocol === "s3") {
-      const _parsedConfig = configOrExit(s3BucketConfigSchema, {}, [
+      configOrExit(s3BucketConfigSchema, {}, [
         bucketConfig,
       ]);
     } else {
-      const _parsedConfig = configOrExit(swiftBucketConfigSchema, {}, [
+      configOrExit(swiftBucketConfigSchema, {}, [
         bucketConfig,
       ]);
     }

@@ -30,6 +30,18 @@
         "id": "tasks",
         "config": {
           "tasks": {
+            "build-proxy": {
+              "ty": "denoFile@v1",
+              "key": "build-proxy",
+              "desc": "Rebuild the proxy docker image",
+              "envKey": "bciqa3gn6bjbmgjf7mvk7cv6wfjo23wj3vyppgtpqt4ovvxkpzjrcvua"
+            },
+            "dev-proxy": {
+              "ty": "denoFile@v1",
+              "key": "dev-proxy",
+              "desc": "Run the proxy inside a docker container",
+              "envKey": "bciqa3gn6bjbmgjf7mvk7cv6wfjo23wj3vyppgtpqt4ovvxkpzjrcvua"
+            },
             "dev-compose": {
               "ty": "denoFile@v1",
               "key": "dev-compose",
@@ -38,6 +50,8 @@
             }
           },
           "tasksNamed": [
+            "build-proxy",
+            "dev-proxy",
             "dev-compose"
           ]
         }

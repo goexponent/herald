@@ -8,7 +8,7 @@ import { basename } from "std/path/mod.ts";
  */
 export async function createTempFile(
   sizeInMB: number,
-  path: string | undefined,
+  path: string | undefined = undefined,
 ): Promise<string> {
   const sizeInBytes = sizeInMB * 1024 * 1024;
 

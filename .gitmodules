@@ -1,0 +1,3 @@
+[submodule "deploy/app/chart-generic"]
+	path = deploy/app/chart-generic
+	url = ../../devops/chart-generic.git

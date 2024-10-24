@@ -7,6 +7,8 @@ import {
   URLFormatStyle,
   urlFormatStyle,
 } from "./types.ts";
+import { HTTPException } from "../types/http-exception.ts";
+import { isIP } from "../utils/url.ts";
 
 export function getS3Client(bucketName: string) {
   // deno-lint-ignore require-await no-explicit-any
@@ -50,37 +52,32 @@ function extractMethod(request: HonoRequest) {
   return method;
 }
 
-// FIXME: fails for "0.0.0.0" kinds of DNS format
 function extractBucketName(request: HonoRequest): string | undefined {
   const urlFormat = getUrlFormat(request);
+  const path = request.path;
+  const pathParts = path.split("/").filter((part) => part.length > 0);
 
   if (urlFormat === urlFormatStyle.Values.VirtualHosted) {
     const host = request.header("host");
-
-    const elts = host!.split(".");
-    return elts.at(0);
+    const hostParts = host!.split(".");
+    return hostParts[0];
+  } else {
+    // Path-style URL
+    return pathParts[0] || undefined; // The first non-empty part of the path is the bucket name, or undefined if there isn't one
   }
-
-  const path = request.path;
-  const elts = path.split("/");
-
-  if (elts.length < 2) {
-    return;
-  }
-
-  const bucketName = elts.at(1);
-  return bucketName;
 }
 
 function extractObjectKey(request: HonoRequest): string | undefined {
   const urlFormat = getUrlFormat(request);
-  const keyIndex = urlFormat === urlFormatStyle.Values.VirtualHosted ? 1 : 2;
-
   const path = request.path;
-  const nodes = path.split("/");
-  const objectKey = nodes.at(keyIndex);
+  const pathParts = path.split("/").filter((part) => part.length > 0);
 
-  return objectKey;
+  if (urlFormat === urlFormatStyle.Values.VirtualHosted) {
+    return pathParts.join("/"); // All path parts form the object key
+  } else {
+    // Path-style URL
+    return pathParts.slice(1).join("/"); // All path parts after the bucket name form the object key
+  }
 }
 
 /**
@@ -88,20 +85,35 @@ function extractObjectKey(request: HonoRequest): string | undefined {
  *
  * @param request - The HonoRequest object containing the request information.
  * @returns The URL format style (VirtualHosted or Path).
- * @throws Error if the request does not have a valid host.
+ * @throws HTTPException if the request does not have a valid host.
  */
 function getUrlFormat(request: HonoRequest): URLFormatStyle {
   const host = request.header("host");
   if (!host) {
-    // TODO: change to HTTPException.
-    throw new Error(`Invalid request: ${request.url}`);
+    throw new HTTPException(400, {
+      message: `Invalid request: ${request.url}`,
+    });
   }
 
-  const elts = host.split(".");
-  if (elts.length >= 2) {
+  // Remove port if present
+  const hostWithoutPort = host.split(":")[0];
+
+  // If the host is an IP address or localhost, it's always path-style
+  if (isIP(hostWithoutPort) || hostWithoutPort === "localhost") {
+    return urlFormatStyle.Values.Path;
+  }
+
+  // For domain names, check if it's in the format "bucket-name.s3.amazonaws.com"
+  const domainParts = hostWithoutPort.split(".");
+  if (
+    domainParts.length >= 3 &&
+    (domainParts[0] !== "s3" && domainParts[0] !== "herald") &&
+    domainParts[domainParts.length - 3] !== "www"
+  ) {
     return urlFormatStyle.Values.VirtualHosted;
   }
 
+  // If we reach here, it's path-style
   return urlFormatStyle.Values.Path;
 }
 
@@ -113,14 +125,14 @@ function getUrlFormat(request: HonoRequest): URLFormatStyle {
  */
 export function extractRequestInfo(request: HonoRequest): RequestMeta {
   const bucketName = extractBucketName(request);
-  const objectKey = bucketName ? extractObjectKey(request) : null;
+  const objectKey = extractObjectKey(request);
   const urlFormat = getUrlFormat(request);
   const method = extractMethod(request);
   const queryParams = request.queries();
 
   const reqMeta: RequestMeta = {
     bucket: bucketName,
-    objectKey,
+    objectKey: objectKey || null,
     urlFormat,
     method,
     queryParams,
