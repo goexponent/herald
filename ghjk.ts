@@ -1,4 +1,4 @@
-import { file } from "./dev/deps.ts";
+import { file } from "./tools/deps.ts";
 
 const ghjk = file({
     tasks: {
@@ -7,7 +7,7 @@ const ghjk = file({
     desc: "Wrapper around docker compose to manage runtime dependencies",
     async fn($) {
       const dcs = await Array.fromAsync(
-        $.workingDir.join("dev/envs").expandGlob("compose.*.yml", {
+        $.workingDir.join("tools/compose").expandGlob("compose.*.yml", {
           includeDirs: false,
           globstar: true,
         }),
@@ -52,6 +52,35 @@ const ghjk = file({
       }
     },
   },
+
+  "dev-proxy": {
+    desc: "Run the proxy inside a docker container",
+    async fn($) {
+      const arg = $.argv[0];
+      if (arg !== 'up' && arg !== 'down') {
+        console.log(
+          `Unsupported subcommand "${arg}", available: 'up' and 'down'`,
+        );
+        Deno.exit(1);
+      }
+
+      if (arg === "up") {
+        await $.raw`docker compose up -d --remove-orphans`;
+        console.log("It might take some time for the proxy to download dependencies based on your internet speed")
+      } else {
+        await $.raw`docker compose down --remove-orphans --volumes`;
+      }
+    }
+  },
+
+
+  "build-proxy": {
+    desc: "Rebuild the proxy docker image",
+    async fn($) {
+      await $.raw`docker-compose build --no-cache proxy`;
+      await $.raw`docker-compose up -d --force-recreate`;
+    }
+  }
 
     },
   });

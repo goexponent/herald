@@ -32,26 +32,22 @@ const app = new Hono();
 const logger = getLogger(import.meta);
 
 app.all("/*", async (c) => {
-  return await resolveHandler(c);
-});
-
-// misc
-app.get("/", (c) => {
-  return c.text("Proxy is running...");
-});
-
-// TODO: automated logs for common log messages across the endpoints
-app.get("/healthcheck", (c) => {
+  const path = c.req.path;
   let logMsg = `Receieved request on ${c.req.url}`;
-  logger.info(logMsg);
+  logger.debug(logMsg);
 
-  // TODO: thorough health check,
+  if (path === "/health-check") {
+    // TODO: thorough health check,
+    const healthStatus = "Ok";
+    logMsg = `Health Check Complete: ${healthStatus}`;
 
-  const healthStatus = "Ok";
-  logMsg = `Health Check Complete: ${healthStatus}`;
+    logger.info(logMsg);
+    return c.text(healthStatus, 200);
+  } else if (path === "/") {
+    return c.text("Proxy is running...", 200);
+  }
 
-  logger.info(logMsg);
-  return c.text(healthStatus, 200);
+  return await resolveHandler(c);
 });
 
 app.notFound((c) => {
