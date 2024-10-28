@@ -33,13 +33,14 @@ export async function s3Resolver(
   c: Context,
   bucketConfig: S3BucketConfig,
 ) {
-  const { method, objectKey, queryParams } = extractRequestInfo(c.req);
+  const rawRequest = c.req.raw;
+  const { method, objectKey, queryParams } = extractRequestInfo(rawRequest);
   const queryParamKeys = Object.keys(queryParams);
 
   switch (method) {
     case "GET":
       if (objectKey) {
-        return await handlers.getObject(c, bucketConfig);
+        return await handlers.getObject(rawRequest, bucketConfig);
       } else if (queryParams["list-type"]) {
         return await handlers.listObjects(c, bucketConfig);
       }

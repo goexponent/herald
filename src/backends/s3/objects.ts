@@ -6,8 +6,21 @@ import { prepareMirrorRequests } from "../mirror.ts";
 
 const logger = getLogger(import.meta);
 
-export function getObject(c: Context, _bucketConfig: S3BucketConfig) {
-  return c.text("Not Implemented");
+export async function getObject(req: Request, _bucketConfig: S3BucketConfig) {
+  logger.info("[S3 backend] Proxying Get Object Request...");
+
+  const response = await forwardRequestWithTimeouts(
+    req,
+    _bucketConfig.config,
+  );
+
+  if (response.status !== 200) {
+    logger.warn(`Get Object Failed: ${response.statusText}`);
+  } else {
+    logger.info(`Get Object Successful: ${response.statusText}`);
+  }
+
+  return response;
 }
 
 export async function listObjects(c: Context, bucketConfig: S3BucketConfig) {

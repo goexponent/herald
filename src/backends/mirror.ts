@@ -5,8 +5,11 @@ import {
   S3BucketConfig,
   SwiftBucketConfig,
 } from "../config/types.ts";
-import { Mutex } from "./mutex.ts";
 import { getLogger } from "../utils/log.ts";
+import { forwardRequestWithTimeouts } from "../utils/url.ts";
+import { extractRequestInfo } from "../utils/mod.ts";
+import { getObject } from "./s3/objects.ts";
+import { putObject as swiftPutObject } from "./swift/objects.ts";
 
 const logger = getLogger(import.meta);
 
@@ -20,45 +23,85 @@ export interface MirrorTask {
   backupBucketConfig: BackupS3Config | BackupSwiftConfig;
   command: MirrorableCommands;
   originalRequest: Request;
+  nonce: string;
 }
 
 export interface WorkerEvent {
   data: MirrorTask;
 }
 
-const taskQueue: MirrorTask[] = [];
+// Create a new worker
+function createWorker(): Worker {
+  const worker = new Worker(new URL("./worker.ts", import.meta.url).href, {
+    type: "module",
+  });
+  return worker;
+}
+
+// Add a worker to the pool
+function addWorker() {
+  const worker = createWorker();
+  workers.push(worker);
+}
 const workers: Worker[] = [];
-
-// Instantiate a mutex
-const queueMutex = new Mutex();
-
-export async function enqueueTask(task: MirrorTask) {
-  const release = await queueMutex.lock();
-  try {
-    taskQueue.push(task);
-  } finally {
-    release(); // Ensure release is called after operation
-  }
+const workersCount = 5;
+for (let i = 0; i < workersCount; i++) {
+  addWorker();
 }
 
-export async function getNextTask(): Promise<MirrorTask | undefined> {
-  const release = await queueMutex.lock();
-  try {
-    return taskQueue.shift();
-  } finally {
-    release(); // Ensure release is called after operation
-  }
+// Open a KV store
+const kv = await Deno.openKv();
+
+export async function enqueueMirrorTask(task: MirrorTask) {
+  const nonce = crypto.randomUUID(); // Unique identifier for the task
+  const taskKey = ["nonces", nonce];
+  task.nonce = nonce;
+
+  // Atomic transaction to add the task to the queue
+  await kv.atomic()
+    .check({ key: taskKey, versionstamp: null }) // Ensure the task is not already enqueued
+    .enqueue(task)
+    .set(taskKey, true) // Enqueue the task
+    .commit();
 }
 
-export async function moveTaskToLast() {
-  const release = await queueMutex.lock();
-  try {
-    if (taskQueue.length > 0) {
-      const task = taskQueue.shift();
-      taskQueue.push(task!);
-    }
-  } finally {
-    release(); // Ensure release is called after operation
+kv.listenQueue(async (task: MirrorTask) => {
+  const nonce = await kv.get(["nonces", task.nonce]);
+  if (nonce.value === null) {
+    // This messaged was already processed
+    return;
+  }
+
+  // Atomic transaction to mark task as processed
+  const success = await kv.atomic()
+    .check({ key: nonce.key, versionstamp: nonce.versionstamp })
+    .delete(nonce.key) // Remove task from the queue
+    .commit();
+
+  if (success) {
+    logger.info("Processing task:", task);
+    await sendToWorker(task);
+  } else {
+    // If the transaction failed, it means the task has already been processed or is being processed
+    logger.warn(`Task ${nonce.key} already processed or invalid.`);
+  }
+});
+
+async function sendToWorker(task: MirrorTask) {
+  const worker = workers.pop();
+  if (worker) {
+    worker.postMessage({ type: "task", task });
+
+    worker.onmessage = (event) => {
+      if (event.data.type === "taskComplete") {
+        logger.debug(`Task complete: ${Deno.inspect(event.data.task)}`);
+        workers.push(worker);
+      }
+    };
+  } else {
+    logger.debug("No workers available.");
+    logger.debug("Re-queueing task.");
+    await enqueueMirrorTask(task);
   }
 }
 
@@ -76,8 +119,9 @@ export async function prepareMirrorRequests(
       backupBucketConfig: backupConfig,
       command: command,
       originalRequest: new Request(c.req.raw),
+      nonce: "",
     };
-    await enqueueTask(task);
+    await enqueueMirrorTask(task);
   }
 }
 
@@ -104,57 +148,60 @@ export function copyObject(
   return copyObjectRequest;
 }
 
-function handleWorkerMessage(event: MessageEvent, worker: Worker) {
-  const { type } = event.data;
+function getDownloadS3Url(originalRequest: Request) {
+  const reqMeta = extractRequestInfo(originalRequest);
+  const url = new URL(originalRequest.url);
+  if (reqMeta.urlFormat === "Path") {
+    return `${url.hostname}/${reqMeta.bucket}/${reqMeta.objectKey}`;
+  }
 
-  if (type === "requestTask") {
-    if (taskQueue.length > 0) {
-      const task = taskQueue.shift();
-      worker.postMessage({ type: "task", task });
+  return `${reqMeta.bucket}.${url.hostname}/${reqMeta.objectKey}`;
+}
+
+export async function copyObjectsFromMainToBackup(
+  primary: S3BucketConfig | SwiftBucketConfig,
+  replica: BackupS3Config | BackupSwiftConfig,
+  originalRequest: Request,
+) {
+  // TODO: what if the object is not found?
+  // TODO: what if the object already exists in replica
+  if (primary.typ === "S3BucketConfig") {
+    if (replica.typ === "BackupS3Config") {
+      const copyRequest = copyObject(originalRequest, replica);
+      const response = await forwardRequestWithTimeouts(
+        copyRequest,
+        replica.config,
+      );
+      if (response.ok) {
+        logger.debug(
+          `Object copied from ${primary.config.bucket} to ${replica.config.bucket}`,
+        );
+      } else {
+        logger.error(
+          `Failed to copy object from ${primary.config.bucket} to ${replica.config.bucket}`,
+        );
+      }
     } else {
-      // No tasks left, maybe signal to terminate or idle
-      worker.postMessage({ type: "noMoreTasks" });
+      // get object from s3
+      const getObjectUrl = getDownloadS3Url(originalRequest);
+      const getObjectRequest = new Request(getObjectUrl, {
+        headers: originalRequest.headers,
+        method: "GET",
+      });
+      const response = await getObject(getObjectRequest, primary);
+      const putToSwiftRequest = new Request(originalRequest.url, {
+        body: response.body,
+      });
+      await swiftPutObject(putToSwiftRequest, replica.config);
     }
   }
 }
 
-// Create a new worker
-function createWorker(): Worker {
-  const worker = new Worker(new URL("./worker.ts", import.meta.url).href, {
-    type: "module",
-  });
-  worker.onmessage = (event) => handleWorkerMessage(event, worker);
-  return worker;
-}
-
-// Add a worker to the pool
-function addWorker() {
-  const worker = createWorker();
-  workers.push(worker);
-}
-
-function processTaskQueue() {
-  while (taskQueue.length > 0 && workers.length > 0) {
-    const task = taskQueue.shift();
-    // TODO: using limited ammount of workers, per backend numbers
-    const worker = workers.pop();
-
-    if (worker && task) {
-      worker.postMessage({ type: "task", task });
-    }
+export function processTask(task: MirrorTask) {
+  const { command } = task;
+  switch (command) {
+    case "putObject":
+    case "deleteObject":
+    case "copyObject":
   }
 }
-
-// Function to check the queue and process tasks
-function startPolling() {
-  setInterval(() => {
-    logger.debug(`Checking queue: ${taskQueue.length} task(s) available.`);
-    if (taskQueue.length > 0) {
-      addWorker(); // Add a worker if tasks are available
-      processTaskQueue(); // Dispatch tasks to workers
-    }
-  }, 5 * 60 * 1000); // Check every 5 minutes
-}
-
-// TODO: remove
-startPolling();

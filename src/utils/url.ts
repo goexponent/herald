@@ -1,4 +1,3 @@
-import { HonoRequest } from "@hono/hono";
 import { S3Config } from "../config/mod.ts";
 import { getLogger } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
@@ -74,12 +73,11 @@ export async function forwardRequestWithTimeouts(
   );
 }
 
-export function getBodyFromHonoReq(
-  req: HonoRequest,
+export function getBodyFromReq(
+  req: Request,
 ): ReadableStream<Uint8Array> | undefined {
-  const rawRequest = req.raw;
-  if (rawRequest.body) {
-    return rawRequest.body;
+  if (req.body) {
+    return req.body;
   }
 }
 

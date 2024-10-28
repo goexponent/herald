@@ -1,22 +1,21 @@
-import { Context } from "@hono/hono";
-import { SwiftBucketConfig } from "../../config/mod.ts";
 import { getLogger } from "../../utils/log.ts";
 import { extractRequestInfo } from "../../utils/mod.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
-import { getBodyFromHonoReq } from "../../utils/url.ts";
+import { getBodyFromReq } from "../../utils/url.ts";
 import { toS3XmlContent } from "./utils/mod.ts";
 import { NoSuchBucketException } from "../../constants/errors.ts";
+import { SwiftConfig } from "../../config/types.ts";
 
 const logger = getLogger(import.meta);
 
 export async function putObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Put Object Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
@@ -25,7 +24,7 @@ export async function putObject(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
@@ -33,7 +32,7 @@ export async function putObject(
   const response = await fetch(reqUrl, {
     method: "PUT",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status !== 201) {
@@ -46,12 +45,12 @@ export async function putObject(
 }
 
 export async function getObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Get Object Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
@@ -60,7 +59,7 @@ export async function getObject(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
@@ -68,7 +67,7 @@ export async function getObject(
   const response = await fetch(reqUrl, {
     method: "GET",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status !== 200) {
@@ -81,12 +80,12 @@ export async function getObject(
 }
 
 export async function deleteObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Delete Object Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
@@ -95,7 +94,7 @@ export async function deleteObject(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
@@ -103,7 +102,7 @@ export async function deleteObject(
   const response = await fetch(reqUrl, {
     method: "DELETE",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status !== 204) {
@@ -116,12 +115,12 @@ export async function deleteObject(
 }
 
 export async function listObjects(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Get List of Objects Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
@@ -130,7 +129,7 @@ export async function listObjects(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
@@ -138,7 +137,7 @@ export async function listObjects(
   const response = await fetch(reqUrl, {
     method: "GET",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status === 404) {
@@ -154,12 +153,12 @@ export async function listObjects(
 }
 
 export async function getObjectMeta(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Get Object Meta Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
@@ -168,7 +167,7 @@ export async function getObjectMeta(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
@@ -176,7 +175,7 @@ export async function getObjectMeta(
   const response = await fetch(reqUrl, {
     method: "GET",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status !== 201) {
@@ -189,12 +188,12 @@ export async function getObjectMeta(
 }
 
 export async function headObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Head Object Request...");
 
-  const { bucket, objectKey } = extractRequestInfo(c.req);
+  const { bucket, objectKey } = extractRequestInfo(req);
   if (!bucket || !objectKey) {
     throw new HTTPException(404, {
       message: "Bucket or object information missing from the request",
@@ -202,7 +201,7 @@ export async function headObject(
   }
 
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(bucketConfig);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${objectKey}`;
 

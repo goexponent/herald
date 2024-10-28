@@ -4,19 +4,20 @@ import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
 import { extractRequestInfo } from "../../utils/mod.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { getLogger } from "../../utils/log.ts";
-import { getBodyFromHonoReq } from "../../utils/url.ts";
+import { getBodyFromReq } from "../../utils/url.ts";
 import { MethodNotAllowedException } from "../../constants/errors.ts";
 import { XML_CONTENT_TYPE } from "../../constants/query-params.ts";
+import { SwiftConfig } from "../../config/types.ts";
 
 const logger = getLogger(import.meta);
 
 export async function createBucket(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Create Bucket Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -25,7 +26,7 @@ export async function createBucket(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
@@ -33,7 +34,7 @@ export async function createBucket(
   const response = await fetch(reqUrl, {
     method: "PUT",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status >= 300) {
@@ -46,12 +47,12 @@ export async function createBucket(
 }
 
 export async function deleteBucket(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Delete Bucket Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -60,7 +61,7 @@ export async function deleteBucket(
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      bucketConfig,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
@@ -68,7 +69,7 @@ export async function deleteBucket(
   const response = await fetch(reqUrl, {
     method: "Delete",
     headers: headers,
-    body: getBodyFromHonoReq(c.req),
+    body: getBodyFromReq(req),
   });
 
   if (response.status !== 204) {
@@ -86,7 +87,7 @@ export async function getBucketAcl(
 ): Promise<Response> {
   logger.info("[Swift backend] Handling Get Bucket ACL Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(c.req.raw);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -153,7 +154,7 @@ export async function getBucketVersioning(
 ): Promise<Response> {
   logger.info("[Swift backend] Handling Get Bucket Versioning Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(c.req.raw);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -275,7 +276,7 @@ export async function getBucketEncryption(
 ): Promise<Response> {
   logger.info("[Swift backend] Handling Get Bucket Encryption Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(c.req.raw);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -328,7 +329,7 @@ export async function headBucket(
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Head Bucket Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(c.req.raw);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -421,7 +422,7 @@ export async function getBucketTagging(
 ): Promise<Response> {
   logger.info("[Swift backend] Handling Get Bucket Tagging Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(c.req.raw);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
@@ -478,7 +479,7 @@ export async function getBucketPolicy(
 ): Promise<Response> {
   logger.info("[Swift backend] Handling Get Bucket Policy Request...");
 
-  const { bucket } = extractRequestInfo(c.req);
+  const { bucket } = extractRequestInfo(c.req.raw);
   if (!bucket) {
     throw new HTTPException(404, {
       message: "Bucket information missing from the request",
