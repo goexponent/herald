@@ -62,10 +62,7 @@ EOF
   herald_checksum = sha256(local.herald_config)
 }
 
-variable "TAG" {
-  type    = string
-  default = "latest"
-}
+
 
 module "web" {
   source = "git::https://gitlab.exponent.ch/devops/tf-modules.git//helm?ref=main"

@@ -13,3 +13,8 @@ variable "OPENSTACK_USERNAME" {
 variable "OPENSTACK_PASSWORD" {
   type = string
 }
+
+variable "TAG" {
+  type    = string
+  default = "latest"
+}

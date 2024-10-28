@@ -12,8 +12,8 @@ docker:
     DOCKER_EXTRA_ARGS: |
       --build-arg RELEASE
   only:
-    - merge_requests
     - main
+    - merge_requests
 
 terraform:
   extends: .terraform
