@@ -3,7 +3,6 @@ import { z } from "zod";
 const backendSchema = z.object({
   protocol: z.enum(["s3", "swift"]),
 });
-export type Backend = z.infer<typeof backendSchema>;
 
 export const s3ConfigSchema = z.object({
   endpoint: z.string(),
@@ -16,6 +15,12 @@ export const s3ConfigSchema = z.object({
   }),
 });
 export type S3Config = z.infer<typeof s3ConfigSchema>;
+
+export const s3BucketConfigSchema = z.object({
+  backend: z.string(),
+  config: s3ConfigSchema,
+});
+export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
 
 export const swiftConfigSchema = z.object({
   auth_url: z.string(),
@@ -31,39 +36,9 @@ export const swiftConfigSchema = z.object({
 });
 export type SwiftConfig = z.infer<typeof swiftConfigSchema>;
 
-export const backupS3ConfigSchema = z.object({
-  backend: z.string(),
-  config: s3ConfigSchema,
-  typ: z.literal("BackupS3Config"),
-});
-export type BackupS3Config = z.infer<typeof backupS3ConfigSchema>;
-
-export const backupSwiftConfigSchema = z.object({
-  backend: z.string(),
-  config: swiftConfigSchema,
-  typ: z.literal("BackupSwiftConfig"),
-});
-export type BackupSwiftConfig = z.infer<typeof backupSwiftConfigSchema>;
-
-export const backupConfigSchema = z.union([
-  backupS3ConfigSchema,
-  backupSwiftConfigSchema,
-]);
-export type BackupConfig = z.infer<typeof backupConfigSchema>;
-
-export const s3BucketConfigSchema = z.object({
-  backend: z.string(),
-  config: s3ConfigSchema,
-  backups: z.array(backupConfigSchema).optional(),
-  typ: z.literal("S3BucketConfig"),
-});
-export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
-
 export const swiftBucketConfigSchema = z.object({
   backend: z.string(),
   config: swiftConfigSchema,
-  backups: z.array(backupConfigSchema).optional(),
-  typ: z.literal("SwiftBucketConfig"),
 });
 export type SwiftBucketConfig = z.infer<typeof swiftBucketConfigSchema>;
 

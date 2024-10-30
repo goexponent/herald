@@ -1,4 +1,5 @@
-import { S3Config } from "../config/mod.ts";
+import { HonoRequest } from "@hono/hono";
+import { S3BucketConfig } from "../config/mod.ts";
 import { getLogger } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
 import { AUTH_HEADER, HOST_HEADER } from "../constants/headers.ts";
@@ -15,11 +16,11 @@ const logger = getLogger(import.meta);
  * @returns A promise that resolves to the response of the forwarded request.
  */
 export async function forwardRequestWithTimeouts(
-  request: Request,
-  config: S3Config,
+  request: HonoRequest,
+  s3Config: S3BucketConfig,
 ) {
   const forwardRequest = async () => {
-    const destUrl = new URL(config.endpoint);
+    const destUrl = new URL(s3Config.config.endpoint);
 
     const redirect = new URL(request.url);
     redirect.hostname = destUrl.hostname;
@@ -27,18 +28,19 @@ export async function forwardRequestWithTimeouts(
     redirect.port = destUrl.port;
     redirect.host = destUrl.host;
 
+    const rawRequest = request.raw;
     let body: ReadableStream<Uint8Array> | undefined = undefined;
 
     // Check if the body exists and read it
-    if (request.body) {
-      body = request.body; // Deno body is already a ReadableStream
+    if (rawRequest.body) {
+      body = rawRequest.body; // Deno body is already a ReadableStream
     }
 
     logger.debug(`Original URL: ${request.url}`);
     logger.debug(`Modified URL: ${redirect.toString()}`);
 
     const headers = new Headers();
-    for (const [key, value] of Object.entries(request.headers)) {
+    for (const [key, value] of Object.entries(request.header())) {
       headers.append(key, value);
     }
     headers.set(HOST_HEADER, destUrl.host);
@@ -50,7 +52,7 @@ export async function forwardRequestWithTimeouts(
       body: body,
     });
 
-    const signed = await signRequestV4(forwardReq, config);
+    const signed = await signRequestV4(forwardReq, s3Config);
 
     const newRequest = new Request(redirect, {
       method: signed.method,
@@ -69,15 +71,16 @@ export async function forwardRequestWithTimeouts(
     5,
     100,
     10000,
-    config.bucket,
+    s3Config.config.bucket,
   );
 }
 
-export function getBodyFromReq(
-  req: Request,
+export function getBodyFromHonoReq(
+  req: HonoRequest,
 ): ReadableStream<Uint8Array> | undefined {
-  if (req.body) {
-    return req.body;
+  const rawRequest = req.raw;
+  if (rawRequest.body) {
+    return rawRequest.body;
   }
 }
 
