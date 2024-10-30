@@ -115,9 +115,9 @@ function extractSignedHeaders(request: Request) {
  */
 export async function signRequestV4(
   req: Request,
-  bucketConfig: S3Config,
+  bucketConfig: S3BucketConfig,
 ) {
-  const signer = getV4Signer(bucketConfig);
+  const signer = getV4Signer(bucketConfig.config);
 
   const reqUrl = new URL(req.url);
   const crtHeaders: [string, string][] = [];
