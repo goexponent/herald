@@ -58,6 +58,7 @@ app.notFound((c) => {
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
     // Get the custom response
+    logger.critical(`HTTP Exception: ${err.message}`);
     return err.getResponse();
   }
 
