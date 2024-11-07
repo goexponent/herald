@@ -121,11 +121,14 @@ export async function signRequestV4(
 
   const reqUrl = new URL(req.url);
   const crtHeaders: [string, string][] = [];
-  const unsignedHeaders = [
+  const unsignedHeaders: string[] = [
     "accept",
-    // "accept-encoding",
+    "accept-encoding",
     "accept-language",
     "content-length",
+    // "content-md5",
+    "amz-sdk-invocation-id",
+    "amz-sdk-request",
   ];
   const headersRecord: Record<string, string> = {};
   req.headers.forEach((val, key) => {
@@ -136,7 +139,7 @@ export async function signRequestV4(
   const signableReq: HttpRequest = {
     method: req.method,
     headers: headersRecord,
-    path: reqUrl.pathname,
+    path: decodeURIComponent(reqUrl.pathname),
     hostname: reqUrl.hostname,
     protocol: reqUrl.protocol,
     port: parseInt(reqUrl.port),

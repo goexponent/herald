@@ -5,8 +5,21 @@ import { S3BucketConfig } from "../../config/mod.ts";
 
 const logger = getLogger(import.meta);
 
-export function getObject(c: Context, _bucketConfig: S3BucketConfig) {
-  return c.text("Not Implemented");
+export async function getObject(c: Context, bucketConfig: S3BucketConfig) {
+  logger.info("[S3 backend] Proxying Get Object Request...");
+
+  const response = await forwardRequestWithTimeouts(
+    c.req,
+    bucketConfig,
+  );
+
+  if (response.status !== 200) {
+    logger.warn(`Get Object Failed: ${response.statusText}`);
+  } else {
+    logger.info(`Get Object Successful: ${response.statusText}`);
+  }
+
+  return response;
 }
 
 export async function listObjects(c: Context, bucketConfig: S3BucketConfig) {
