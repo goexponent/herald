@@ -2,7 +2,7 @@ import { Context } from "@hono/hono";
 import {
   deleteObject,
   getObject,
-  getObjectMeta,
+  headObject,
   listObjects,
   putObject,
 } from "./objects.ts";
@@ -21,7 +21,7 @@ const handlers = {
   putObject,
   getObject,
   deleteObject,
-  getObjectMeta,
+  headObject,
   createBucket,
   deleteBucket,
   listObjects,
@@ -71,6 +71,9 @@ export async function s3Resolver(
 
       return await handlers.deleteBucket(c, bucketConfig);
     case "HEAD":
+      if (objectKey) {
+        return await handlers.headObject(c, bucketConfig);
+      }
       return await handlers.headBucket(c, bucketConfig);
     default:
       throw new HTTPException(400, { message: "Unsupported Request" });

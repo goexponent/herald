@@ -112,7 +112,8 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
 
     if (storageUrl === undefined) {
       throw new HTTPException(404, {
-        message: "Storage URL not found in OpenStack Server",
+        message:
+          `Storage URL not found in OpenStack Server for region ${region}`,
       });
     }
 
