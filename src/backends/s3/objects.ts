@@ -73,6 +73,23 @@ export async function deleteObject(c: Context, bucketConfig: S3BucketConfig) {
   return response;
 }
 
-export function getObjectMeta(c: Context) {
-  return c.text("Not Implemented");
+export async function headObject(
+  c: Context,
+  bucketConfig: S3BucketConfig,
+) {
+  logger.info("[S3 backend] Proxying Head Object Request...");
+
+  const response = await forwardRequestWithTimeouts(
+    c.req,
+    bucketConfig,
+  );
+
+  if (response.status != 200) {
+    const errMessage = `Head Object Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+  } else {
+    logger.info(`Head Object Successfull: ${response.statusText}`);
+  }
+
+  return response;
 }

@@ -12,6 +12,9 @@ export const s3ReqParams: Set<string> = new Set([
   "encryption",
   "object-lock",
   "tagging",
+  "max-keys",
+  "delimiter",
+  "prefix",
 ]);
 
 export const XML_CONTENT_TYPE = "application/xml";

@@ -12,42 +12,84 @@ interface JsonObject {
   [key: string]: string | JsonObject;
 }
 
-function getContent(data: JsonObject) {
-  if (!data.object) {
-    return [];
+interface SwiftObject {
+  name: string;
+  last_modified: string;
+  hash: string;
+  bytes: number;
+}
+
+function getS3Object(item: SwiftObject) {
+  return {
+    Key: item.name,
+    LastModified: formatRFC3339Date(item.last_modified),
+    ETag: item.hash,
+    Size: item.bytes,
+    StorageClass: "STANDARD",
+  };
+}
+
+interface Folder {
+  subdir: string;
+}
+
+function instanceOfFolder(object: object): object is Folder {
+  return "subdir" in object;
+}
+
+function extractCommonPrefixes(folders: object[]): string[] {
+  const prefixes = new Set<string>();
+
+  for (const folder of folders) {
+    if (!instanceOfFolder(folder)) {
+      continue;
+    }
+    const dir = folder.subdir;
+    prefixes.add(dir);
   }
 
-  const objectsList = Array.isArray(data.object) ? data.object : [data.object];
-  return objectsList.map((obj) => ({
-    Key: obj.name[0],
-    LastModified: formatRFC3339Date(obj.last_modified[0]),
-    ETag: obj.hash[0],
-    Size: obj.bytes[0],
-    StorageClass: "STANDARD",
-  }));
+  return Array.from(prefixes);
 }
 
 export async function toS3XmlContent(
   swiftResponse: Response,
+  bucket: string,
+  delimiter?: string,
+  prefix?: string,
+  maxKeys = 1000,
 ): Promise<Response> {
-  const swiftBody = await swiftResponse.text();
+  const swiftBody = await swiftResponse.json();
 
-  // Parse Swift JSON/XML response
-  const xmlParser = new xml2js.Parser();
-  const parsedBody = await xmlParser.parseStringPromise(swiftBody);
+  // Transforming Swift's JSON response to S3's XML format
+  const contents = [];
+  for (const item of swiftBody) {
+    if (!item.name) {
+      continue;
+    }
+    contents.push(getS3Object(item));
+  }
 
-  // Transform the parsed body to match S3 XML format
-  const data = parsedBody.container;
-  const items = getContent(data);
+  const commonPrefixes = delimiter ? extractCommonPrefixes(swiftBody) : [];
+
   const s3FormattedBody = {
     ListBucketResult: {
-      Name: data["$"].name,
-      Contents: items,
-      KeyCount: items.length,
+      Name: bucket,
+      Prefix: prefix,
+      Delimiter: delimiter || "",
+      MaxKeys: maxKeys,
+      IsTruncated: swiftBody.length === maxKeys,
+      Contents: contents,
+      CommonPrefixes: commonPrefixes.map((prefix) => ({ Prefix: prefix })),
+      KeyCount: commonPrefixes.length + contents.length,
     },
   };
 
   const xmlBuilder = new xml2js.Builder();
   const formattedXml = xmlBuilder.buildObject(s3FormattedBody);
-  return new Response(formattedXml, swiftResponse);
+
+  return new Response(formattedXml, {
+    headers: {
+      "Content-Type": "application/xml",
+    },
+  });
 }
