@@ -3,6 +3,8 @@ import {
   EnvVarConfig,
   GlobalConfig,
   globalConfigSchema,
+  PodsConfig,
+  podsConfigSchema,
   S3BucketConfig,
   s3BucketConfigSchema,
   SwiftBucketConfig,
@@ -26,6 +28,19 @@ export class ConfigError extends Error {
 async function readYamlFile(yamlFilePath: string) {
   const fileContent = await Deno.readTextFile(yamlFilePath);
   return parse(fileContent);
+}
+
+export async function loadPodsConfig(): Promise<PodsConfig> {
+  // deno-lint-ignore no-explicit-any
+  const yamlConfig = await readYamlFile("pods.yaml") as any;
+
+  const config = configOrExit(
+    podsConfigSchema,
+    {}, // defaults
+    [yamlConfig],
+  ) as PodsConfig;
+
+  return config;
 }
 
 export async function loadConfig(): Promise<GlobalConfig> {

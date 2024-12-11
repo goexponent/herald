@@ -12,6 +12,7 @@
     "@std/yaml": "jsr:@std/yaml@^0.224.3",
     "swift-client": "https://esm.sh/openstack-swift-client@2.3.1",
     "xml2js": "https://esm.sh/xml2js@0.6.2",
-    "sentry": "https://deno.land/x/sentry@8.32.0/index.mjs"
+    "sentry": "https://deno.land/x/sentry@8.32.0/index.mjs",
+    "@djwt": "jsr:@wok/djwt@3.0.2"
   }
 }

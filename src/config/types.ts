@@ -74,3 +74,19 @@ export const envVarConfigSchema = z.object({
   ),
 });
 export type EnvVarConfig = z.infer<typeof envVarConfigSchema>;
+
+export const kuberentestServiceTokenSchema = z.object({
+  serviceaccount: z.object({
+    name: z.string(),
+    uid: z.string(),
+  }),
+  sub: z.string(),
+});
+export type KuberentestServiceToken = z.infer<
+  typeof kuberentestServiceTokenSchema
+>;
+
+export const podsConfigSchema = z.object({
+  pods: z.array(kuberentestServiceTokenSchema),
+});
+export type PodsConfig = z.infer<typeof podsConfigSchema>;
