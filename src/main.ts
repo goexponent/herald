@@ -5,6 +5,7 @@ import { getLogger, setupLoggers } from "./utils/log.ts";
 import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
+import { decodeToken } from "./auth/mod.ts";
 
 // setup
 await configInit();
@@ -43,7 +44,11 @@ app.all("/*", async (c) => {
 
     logger.info(logMsg);
     return c.text(healthStatus, 200);
-  } else if (path === "/") {
+  }
+
+  decodeToken(c.req.header("Authorization") || "");
+
+  if (path === "/") {
     return c.text("Proxy is running...", 200);
   }
 
