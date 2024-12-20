@@ -1,11 +1,31 @@
 .env_export: &env_export
   before_script:
-    - |
-      apt update && apt install -y curl
-      curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | bash
-      apt-get update && apt-get install -y infisical
-      infisical export --domain https://infisical.exponent.ch/api --env=$INFISICAL_ENV > .env
-      export $(grep -E '^[^#]*=' .env | xargs)
+      # setting up on a debian:latest image
+      - apt-get update && apt-get install -y curl
+      - apt-get install -y git
+      - apt-get install -y unzip
+      - apt-get install -y jq
+      - curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | bash
+
+      # infisical setup
+      - apt-get update && apt-get install -y infisical
+      - infisical export --domain https://infisical.exponent.ch/api --env=$INFISICAL_ENV > .env
+      - export $(grep -E '^[^#]*=' .env | xargs)
+
+      # Install OpenTofu (instead of Terraform)
+      - curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+      - chmod +x install-opentofu.sh
+      - ./install-opentofu.sh --install-method deb
+      - rm -f install-opentofu.sh
+
+      # Install kubectl
+      - curl -LO "https://dl.k8s.io/release/v1.22.0/bin/linux/amd64/kubectl"
+      - chmod +x ./kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+
+      # Install Terragrunt
+      - curl -fsSL -o /usr/local/bin/terragrunt "https://github.com/gruntwork-io/terragrunt/releases/download/v0.67.10/terragrunt_linux_amd64"
+      - chmod +x /usr/local/bin/terragrunt
 
 include:
   - project: 'devops/gitlab-ci-templates'
@@ -28,6 +48,7 @@ docker:
 
 deploy-staging:
   extends: .terragrunt
+  image: debian:latest
   needs:
     - docker
   only:
@@ -43,6 +64,7 @@ deploy-staging:
 
 deploy-dev:
   extends: .terragrunt
+  image: debian:latest
   needs:
     - docker
   only:
