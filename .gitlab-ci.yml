@@ -28,7 +28,6 @@ docker:
 
 deploy-staging:
   extends: .terragrunt
-  image: denoland/deno:debian
   needs:
     - docker
   only:
@@ -44,7 +43,6 @@ deploy-staging:
 
 deploy-dev:
   extends: .terragrunt
-  image: denoland/deno:debian
   needs:
     - docker
   only:
