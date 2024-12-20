@@ -1,7 +1,3 @@
-module "config" {
-  source = "./.."
-}
-
 locals {
   s3_host       = "minio"
   s3_region     = "local"
@@ -14,6 +10,17 @@ locals {
   openstack_user_domain_name = "Default"
   openstack_project_domain_name = "Default"
   swift_region = "dc3-a"
+
+  registry       = var.registry
+  gitlab_project = var.gitlab_project
+  name           = var.name
+  namespace = var.namespace
+  environment = var.environment
+  cluster = var.cluster
+  infisical_url = var.infisical_url
+  infisical_env = var.infisical_env
+  context = var.context
+  dns = var.dns
 
   herald_config = <<EOF
 port: 8000
@@ -67,7 +74,7 @@ EOF
 module "web" {
   source = "git::https://gitlab.exponent.ch/devops/tf-modules.git//helm?ref=main"
 
-  namespace = module.config.values.namespace
+  namespace = local.namespace
   name      = "s3-herald-dev"
   chart     = "./chart-generic"
   tag       = var.TAG
@@ -77,10 +84,10 @@ module "web" {
 # https://gitlab.exponent.ch/devops/chart-generic/-/blob/main/values.yaml?ref_type=heads
   values = <<EOF
 image:
-  repository: ${module.config.values.registry}/${module.config.values.gitlab_project}
+  repository: ${local.registry}/${local.gitlab_project}
 
 imagePullSecrets:
-  - name: ${module.config.values.name}-pull
+  - name: ${local.name}-pull
 
 deploymentAnnotations:
   secrets.infisical.com/auto-reload: "true"
@@ -93,7 +100,7 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt
     nginx.ingress.kubernetes.io/proxy-body-size: 80m
-  hosts: ${jsonencode([for k in flatten([for k, v in values(module.config.values.dns) : keys(v)]) :
+  hosts: ${jsonencode([for k in flatten([for k, v in values(local.dns) : keys(v)]) :
   {
     host : k,
     paths : [
@@ -106,7 +113,7 @@ ingress:
 ])}
   tls:
     - secretName: web-tls
-      hosts: ${jsonencode(flatten([for k, v in values(module.config.values.dns) : keys(v)]))}
+      hosts: ${jsonencode(flatten([for k, v in values(local.dns) : keys(v)]))}
 
 containerPort: 8000
 
@@ -144,7 +151,7 @@ depends_on = [
 resource "kubernetes_config_map" "herald" {
   metadata {
     name      = "herald"
-    namespace = module.config.values.namespace
+    namespace = local.namespace
   }
 
   data = {

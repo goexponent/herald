@@ -1,6 +1,4 @@
 locals {
-  # os_password = var.TF_VAR_HERALD_S3_PASSWORD
-
   s3_host       = "minio"
   s3_port       = "9000"
   s3_region     = "us-east-1"
@@ -12,40 +10,47 @@ locals {
   os_user     = "PCU-RP63UPV"
   os_password = var.OS_PASSWORD
 
-  bucket = "swift-test"
+  bucket = var.swift_bucket
 
-  namespace = module.config.values.namespace
-}
-
-module "config" {
-  source = "./.."
+  namespace      = var.namespace
+  registry       = var.registry
+  gitlab        = var.gitlab
+  gitlab_project = var.gitlab_project
+  name           = var.name
+  environment    = var.environment
+  cluster       = var.cluster
+  context        = var.context
+  infisical_url  = var.infisical_url
+  infisical_env  = var.infisical_env
+  dns            = var.dns
 }
 
 module "web_pull" {
   source = "git::https://gitlab.exponent.ch/devops/tf-modules.git//pull-secret?ref=main"
 
-  name           = "${module.config.values.name}-pull"
-  namespace      = module.config.values.namespace
-  registry       = module.config.values.registry
-  gitlab_project = module.config.values.gitlab_project
+  name           = "${local.name}-pull"
+  namespace      = local.namespace
+  registry       = local.registry
+  gitlab_project = local.gitlab_project
 }
 
 module "cluster" {
   source = "git::https://gitlab.exponent.ch/devops/tf-modules.git//cluster-sa?ref=main"
 
-  name           = "${module.config.values.name}-sa"
-  namespace      = module.config.values.namespace
-  cluster_host   = module.config.values.cluster
-  gitlab_project = module.config.values.gitlab_project
+  name           = "${local.name}-sa"
+  namespace      = local.namespace
+  cluster_host   = local.cluster
+  gitlab_project = local.gitlab_project
+  environment = local.environment
 }
 
 data "cloudflare_zone" "zone" {
-  for_each = toset(keys(module.config.values.dns))
+  for_each = toset(keys(local.dns))
   name     = each.key
 }
 
 resource "cloudflare_record" "cname" {
-  for_each = { for r in flatten([for zone, vs in module.config.values.dns : [for k, v in vs : { zone : zone, name : k, cname : v }]]) : r.name => r }
+  for_each = { for r in flatten([for zone, vs in local.dns : [for k, v in vs : { zone : zone, name : k, cname : v }]]) : r.name => r }
   zone_id  = data.cloudflare_zone.zone[each.value.zone].id
   type     = "CNAME"
   name     = each.value.name
@@ -58,21 +63,21 @@ resource "kubernetes_manifest" "infisical" {
     apiVersion: secrets.infisical.com/v1alpha1
     kind: InfisicalSecret
     metadata:
-      name: ${module.config.values.name}
-      namespace: ${module.config.values.namespace}
+      name: ${local.name}
+      namespace: ${local.namespace}
     spec:
-      hostAPI: https://infisical.exponent.ch/api
+      hostAPI: ${local.infisical_url}
       authentication:
         serviceToken:
           serviceTokenSecretReference:
             secretName: infisical-token
-            secretNamespace: ${module.config.values.namespace}
+            secretNamespace: ${local.namespace}
           secretsScope:
-            envSlug: prod
+            envSlug: "${local.infisical_env}"
             secretsPath: "/"
       managedSecretReference:
-        secretName: ${module.config.values.name}-conf
-        secretNamespace: ${module.config.values.namespace}
+        secretName: ${local.name}-conf
+        secretNamespace: ${local.namespace}
   EOF
   )
 }
