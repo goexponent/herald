@@ -1,9 +1,7 @@
 terraform {
   backend "kubernetes" {
-    namespace      = "s3-herald"
     secret_suffix  = "s3-herald"
     config_path    = "~/.kube/config"
-    config_context = "expo-test"
   }
 
   required_providers {
@@ -20,15 +18,19 @@ terraform {
 
 provider "kubernetes" {
   config_path    = "~/.kube/config"
-  config_context = "expo-test"
+  config_context = local.context
 }
 
 provider "helm" {
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = "expo-test"
+    config_context = local.context
   }
   experiments {
     manifest = true
   }
+}
+
+provider "gitlab" {
+  base_url = local.gitlab
 }

@@ -1,4 +1,4 @@
-^tofu:
+^terragrunt:
   GITLAB_TOKEN: op://exponent.1password.eu/Private/gitlab_token/password
   CLOUDFLARE_API_TOKEN: op://exponent.1password.eu/Infra-shared/cloudflare_token/password
   # TF_VAR_HERALD_S3_PASSWORD: op://exponent.1password.eu/Infra-Onboarding/Openstack s3-gitlab/password
