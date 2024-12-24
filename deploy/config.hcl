@@ -14,8 +14,8 @@ inputs = {
     cluster       = "195.15.199.57"
     context = "expo-test"
     dns = {
-      "selfserved.cloud" : {
-        "dev-herald.selfserved.cloud" : "selfserved.cloud",
+       "selfserved.dev" : {
+        "s3.selfserved.dev" : "expo-test.exponent.ch",
       },
     }
     swift_bucket = "swift-test"
@@ -29,7 +29,7 @@ inputs = {
     context       = "expo-test"
     dns = {
       "selfserved.cloud" : {
-        "herald.selfserved.cloud" : "selfserved.cloud",
+        "dev-herald.selfserved.cloud" : "selfserved.cloud",
       },
     }
     swift_bucket = "swift-stg"
