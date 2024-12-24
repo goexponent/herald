@@ -79,7 +79,7 @@ module "web" {
   chart     = "./chart-generic"
   tag       = var.TAG
   timeout   = 60
-  debug     = false
+  debug     = true
 
 # https://gitlab.exponent.ch/devops/chart-generic/-/blob/main/values.yaml?ref_type=heads
   values = <<EOF
