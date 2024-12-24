@@ -76,4 +76,4 @@ deploy-dev:
     INFISICAL_ENV: "dev"
   <<: *env_export
   environment:
-    name: dev
+    name: development
