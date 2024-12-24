@@ -73,7 +73,7 @@ deploy-dev:
   variables:
     TERRAGRUNT_PATH: "deploy/app/dev"
     KUBE_CTX: expo-test
-    INFISICAL_ENV: "development"
+    INFISICAL_ENV: "dev"
   <<: *env_export
   environment:
     name: development
