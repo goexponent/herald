@@ -1,6 +1,5 @@
-import { HonoRequest } from "@hono/hono";
-import { S3BucketConfig } from "../config/mod.ts";
-import { getLogger } from "./log.ts";
+import { S3Config } from "../config/mod.ts";
+import { getLogger, reportToSentry } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
 import { AUTH_HEADER, HOST_HEADER } from "../constants/headers.ts";
 import { HTTPException } from "../types/http-exception.ts";
@@ -10,41 +9,86 @@ import { createXmlErrorResponse } from "./error.ts";
 const logger = getLogger(import.meta);
 
 /**
+ * Returns the redirect URL for the given original URL and target URL.
+ * @param originalUrl
+ * @param targetUrl
+ * @returns The redirect URL.
+ */
+export function getRedirectUrl(originalUrl: string, targetUrl: string): URL {
+  const destUrl = new URL(targetUrl);
+
+  const redirect = new URL(originalUrl);
+  redirect.hostname = destUrl.hostname;
+  redirect.protocol = destUrl.protocol;
+  redirect.port = destUrl.port;
+  redirect.host = destUrl.host;
+
+  return redirect;
+}
+
+/**
+ * Checks if the content length of the request is non-zero.
+ *
+ * @param request - The request to check.
+ * @returns True if the content length is non-zero, false otherwise.
+ */
+export function isContentLengthNonZero(request: Request): boolean {
+  const contentLength = request.headers.get("content-length");
+  return contentLength !== null && parseInt(contentLength, 10) > 0;
+}
+
+/**
  * Forwards a request with timeouts. Before the request is forwarded, the incoming request will be verified using Signature V4 and the request will be signed to match the Signature expected by the object storage server.
  *
  * @param request - The request to be forwarded.
  * @returns A promise that resolves to the response of the forwarded request.
  */
 export async function forwardRequestWithTimeouts(
-  request: HonoRequest,
-  s3Config: S3BucketConfig,
+  request: Request,
+  config: S3Config,
 ) {
   const forwardRequest = async () => {
-    const destUrl = new URL(s3Config.config.endpoint);
+    const redirect = getRedirectUrl(request.url, config.endpoint);
 
-    const redirect = new URL(request.url);
-    redirect.hostname = destUrl.hostname;
-    redirect.protocol = destUrl.protocol;
-    redirect.port = destUrl.port;
-    redirect.host = destUrl.host;
-
-    const rawRequest = request.raw;
     let body: ReadableStream<Uint8Array> | undefined = undefined;
 
     // Check if the body exists and read it
-    if (rawRequest.body) {
-      body = rawRequest.body; // Deno body is already a ReadableStream
+    if (request.body && isContentLengthNonZero(request)) {
+      body = request.body; // Deno body is already a ReadableStream
     }
 
     logger.debug(`Original URL: ${request.url}`);
     logger.debug(`Modified URL: ${redirect.toString()}`);
 
     const headers = new Headers();
-    for (const [key, value] of Object.entries(request.header())) {
+    for (const [key, value] of request.headers) {
       headers.append(key, value);
     }
-    headers.set(HOST_HEADER, destUrl.host);
+    headers.set(HOST_HEADER, redirect.host);
     headers.delete(AUTH_HEADER);
+    const toBeRemovedHeaders = [
+      "baggage",
+      "cdn-loop",
+      "cf-connecting-ip",
+      "cf-ipcountry",
+      "cf-ray",
+      "cf-visitor",
+      "sentry-trace",
+      "x-forwarded-for",
+      "x-forwarded-host",
+      "x-forwarded-port",
+      "x-forwarded-proto",
+      "x-forwarded-scheme",
+      "x-original-forwarded-for",
+      "x-real-ip",
+      "x-request-id",
+      "x-scheme",
+      "content-length",
+      "content-md5",
+    ];
+    for (const key of toBeRemovedHeaders) {
+      headers.delete(key);
+    }
 
     const forwardReq = new Request(redirect, {
       method: request.method,
@@ -52,13 +96,15 @@ export async function forwardRequestWithTimeouts(
       body: body,
     });
 
-    const signed = await signRequestV4(forwardReq, s3Config);
+    const signed = await signRequestV4(forwardReq, config);
 
     const newRequest = new Request(redirect, {
       method: signed.method,
       headers: signed.headers,
       body: signed.body ?? undefined,
     });
+
+    logger.debug(`Request: ${Deno.inspect(newRequest)}`);
 
     // Need to add the url, or content-length gets set to -1
     const response = await fetch(redirect, newRequest);
@@ -68,19 +114,18 @@ export async function forwardRequestWithTimeouts(
 
   return await retryWithExponentialBackoff(
     forwardRequest,
+    config.bucket,
     5,
     100,
     10000,
-    s3Config.config.bucket,
   );
 }
 
-export function getBodyFromHonoReq(
-  req: HonoRequest,
+export function getBodyFromReq(
+  req: Request,
 ): ReadableStream<Uint8Array> | undefined {
-  const rawRequest = req.raw;
-  if (rawRequest.body) {
-    return rawRequest.body;
+  if (req.body) {
+    return req.body;
   }
 }
 
@@ -92,14 +137,14 @@ function delay(ms: number): Promise<void> {
 // Function to handle exponential backoff retries
 export async function retryWithExponentialBackoff<T>(
   fn: () => Promise<T>,
+  resource: string,
   retries = 5,
   initialDelay = 100,
   maxDelay = 1000,
-  resource: string,
 ): Promise<T> {
   let attempt = 0;
   let delayDuration = initialDelay;
-  let err;
+  let err: Error = new Error("Unknown error");
 
   while (attempt < retries) {
     try {
@@ -107,9 +152,9 @@ export async function retryWithExponentialBackoff<T>(
     } catch (error) {
       if (attempt >= retries - 1) {
         logger.critical(error);
-        err = error;
+        reportToSentry(error as Error);
+        err = error as Error;
         attempt++;
-        // FIXME: throw error;
       }
 
       await delay(delayDuration);
@@ -154,4 +199,22 @@ export function isIP(ip: string): boolean {
     /^(?:(?:[a-fA-F\d]{1,4}:){7}(?:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,2}|:)|(?:[a-fA-F\d]{1,4}:){4}(?:(?::[a-fA-F\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,3}|:)|(?:[a-fA-F\d]{1,4}:){3}(?:(?::[a-fA-F\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,4}|:)|(?:[a-fA-F\d]{1,4}:){2}(?:(?::[a-fA-F\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,5}|:)|(?:[a-fA-F\d]{1,4}:){1}(?:(?::[a-fA-F\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,6}|:)|(?::(?:(?::[a-fA-F\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,7}|:)))(?:%[0-9a-zA-Z]{1,})?$/;
 
   return ipv4Pattern.test(ip) || ipv6Pattern.test(ip);
+}
+
+export function serializeRequest(req: Request): Record<string, unknown> {
+  return {
+    url: req.url,
+    method: req.method,
+    headers: Object.fromEntries(req.headers.entries()),
+    // body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : null,
+  };
+}
+
+// deno-lint-ignore no-explicit-any
+export function deserializeToRequest(data: Record<string, any>): Request {
+  return new Request(data.url, {
+    method: data.method,
+    headers: new Headers(data.headers),
+    // body: data.method !== 'GET' && data.method !== 'HEAD' ? data.body : null,
+  });
 }

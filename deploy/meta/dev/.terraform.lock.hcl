@@ -24,6 +24,27 @@ provider "registry.opentofu.org/cloudflare/cloudflare" {
   ]
 }
 
+provider "registry.opentofu.org/exoscale/exoscale" {
+  version = "0.62.3"
+  hashes = [
+    "h1:8+ZvuaidalIG0++90jWlGWJXviQQOa3m2GHAnUa/q6s=",
+    "zh:02177cd0de1ae4381e3cbc71bfc98a07975069238bdada95d396f00a7b9c46c0",
+    "zh:072670313aeb9be19aa1db054e219a9df1cea36637049c9f2c4dfc706c13ec0e",
+    "zh:0a2dde048b23f84fd721cbb8bd88ad2d57fc945f6b8e5d5d586010ad0b9fc0be",
+    "zh:1629a6a638fc92ab337ff16ef58d916de7617d956a83b943ba69f690c74c8a15",
+    "zh:4f3c03f69dc271a2789dd6c86232c956e2a22cb945e1c5e4387886b648707794",
+    "zh:662babfe23320f3ff5bc0f0aaa118fcb8e1561190dc65dfe1b73030df5a15c60",
+    "zh:93f144174c6c8279b9e069a3eb5b45b2e6828455769699f3cc8b80e432585b4d",
+    "zh:95c23bee26c2c9adfc9e23017f99f4e3a6ac0c5de91e3cd585bdfd1da257454c",
+    "zh:ac0d493a4f3642e640c52b870a0181bc762c3636df6cb43427c6a3cf9f6bc598",
+    "zh:cedba8b051169757013c9a40b3709ece3fb5e35c98b00430afbeb26895fff2b1",
+    "zh:d78e0eb3e1d2f37f2f3f1b21b919eed0ec044b256266acd42faa5f2811e654a1",
+    "zh:e69e04a3ece7e2cf0623d776422e6601dae1b9464d17ca394e2b89843c864cec",
+    "zh:f3e7c3e8bcef474a8b864bdbca6c145d7d57bbeca1e98110d8fb08c6ca65854d",
+    "zh:f65a3256dd4f54d730bed6127370aa0c38aea2cf059f66311e0047e6528ee98e",
+  ]
+}
+
 provider "registry.opentofu.org/gitlabhq/gitlab" {
   version     = "16.0.3"
   constraints = ">= 16.0.3, ~> 16.0.3"
@@ -44,6 +65,24 @@ provider "registry.opentofu.org/gitlabhq/gitlab" {
     "zh:f5277be064e7417bcbfe238459620648ea055ebae1d024957e3e92a37e772ea6",
     "zh:f809ab383cca0a5f83072981c64208cbd7fa67e986a86ee02dd2c82333221e32",
     "zh:fd7c977b6711e7a242b3454f9afe1ab32c402d3440a460ea35a4fa7c0c8b6e9c",
+  ]
+}
+
+provider "registry.opentofu.org/hashicorp/aws" {
+  version     = "5.82.2"
+  constraints = "~> 5.0"
+  hashes = [
+    "h1:9QRxRf9iCT7UPymoHdcif0DcKwKAM/PiQ75VBrl9W+o=",
+    "zh:0c662b1f27119941e2329155070c8a81f6979e3d5e98296949f373c46487d84e",
+    "zh:56cbaeaf050174bb9ba9a00f31fe441365ffece6ad39254885c9d4e6517e27e3",
+    "zh:6e7f66c9f9955deb9ce0a2ae4b6df366b3b6bc3e23bca1fcdd4351ecab3ec907",
+    "zh:7971a22df020391ca20936584282d01f3380bcfc79260afbdf04d6b4d50cf75a",
+    "zh:7b8f2175447e64c9a9c9624818a597cd6c1609f379f7f8e3e179ee7394a467b7",
+    "zh:a805e26eb7f58e46b130decab79c0871dfd73206d7bd6c1793e27c2dc35fd8b6",
+    "zh:b6163e746c77d47269c0e3014bdc1f805152b3d94471dd6443373d91b848cf45",
+    "zh:c46872fd0c304852bd506c036f31dbe047a97036992319a3c594949538651680",
+    "zh:d586f1ef412f336ede54d720a78f11a64952a39bfe401e141d24826530cb2449",
+    "zh:ddaf2e1de0f1660ac31c5f1bebd40cc2b29e19f64bf41591c3b5df00dc268367",
   ]
 }
 

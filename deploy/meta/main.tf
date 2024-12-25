@@ -1,7 +1,4 @@
 locals {
-  s3_host       = "minio"
-  s3_port       = "9000"
-  s3_region     = "us-east-1"
   s3_access_key = var.MINIO_ACCESS_KEY
   s3_secret_key = var.MINIO_SECRET_KEY
 
@@ -14,11 +11,11 @@ locals {
 
   namespace      = var.namespace
   registry       = var.registry
-  gitlab        = var.gitlab
+  gitlab         = var.gitlab
   gitlab_project = var.gitlab_project
   name           = var.name
   environment    = var.environment
-  cluster       = var.cluster
+  cluster        = var.cluster
   context        = var.context
   infisical_url  = var.infisical_url
   infisical_env  = var.infisical_env
@@ -41,7 +38,7 @@ module "cluster" {
   namespace      = local.namespace
   cluster_host   = local.cluster
   gitlab_project = local.gitlab_project
-  environment = local.environment
+  environment    = local.environment
 }
 
 data "cloudflare_zone" "zone" {

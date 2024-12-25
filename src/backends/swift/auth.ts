@@ -53,7 +53,7 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
         scope: {
           project: {
             domain: { name: projectDomainName },
-            name: projectName, // Replace with your actual project name
+            name: projectName,
           },
         },
       },
@@ -76,9 +76,9 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
     }
 
     if (!response.ok) {
-      logger.warn(
-        `Failed to authenticate with the auth service: ${response.statusText}`,
-      );
+      const errMessage =
+        `Failed to authenticate with the auth service: ${response.statusText}`;
+      logger.warn(errMessage);
       throw new HTTPException(response.status, { res: response });
     }
     logger.info("Authorization Token and Storage URL retrieved Successfully");
@@ -127,10 +127,10 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
 
   return await retryWithExponentialBackoff(
     getAuthToken,
+    config.container,
     5,
     100,
     1000,
-    config.container,
   );
 }
 

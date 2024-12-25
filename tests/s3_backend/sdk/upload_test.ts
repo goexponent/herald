@@ -1,5 +1,5 @@
-import { assertEquals } from "std/assert/mod.ts";
-import * as path from "std/path/mod.ts";
+import { assertEquals } from "std/assert";
+import * as path from "std/path";
 import {
   CreateBucketCommand,
   DeleteBucketCommand,
@@ -10,7 +10,7 @@ import {
   S3Client,
 } from "aws-sdk/client-s3";
 import { createTempFile, createTempStream } from "../../../utils/file.ts";
-import { assert } from "std/assert/assert.ts";
+import { assert } from "std/assert";
 import { setupBucket } from "../../../utils/s3.ts";
 import { Upload } from "aws-sdk/lib-storage";
 import { getS3Client } from "../../../src/utils/s3.ts";
@@ -51,7 +51,7 @@ export async function listObjects(client: S3Client, bucketName: string) {
     const res = await client.send(listCommand);
     return res.Contents ?? [];
   } catch (e) {
-    if (e.name === "NoSuchBucket") {
+    if ((e as Error).name === "NoSuchBucket") {
       return null;
     }
     throw e;

@@ -1,5 +1,5 @@
-import { writeAll } from "std/io/write_all.ts";
-import { basename } from "std/path/mod.ts";
+import { writeAll } from "std/io";
+import { basename } from "std/path";
 
 /**
  * Creates a temporary file of the specified size in megabytes.

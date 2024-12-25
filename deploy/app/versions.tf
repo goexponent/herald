@@ -1,7 +1,10 @@
 terraform {
+  required_version = ">= 1.4.6"
+
   backend "kubernetes" {
-    secret_suffix  = "s3-herald"
-    config_path    = "~/.kube/config"
+    # checkov:skip=CKV_SECRET_6: 'secret_suffix' is not a secret
+    secret_suffix = "s3-herald"
+    config_path   = "~/.kube/config"
   }
 
   required_providers {
@@ -31,6 +34,7 @@ provider "helm" {
   }
 }
 
+# tflint-ignore: terraform_required_providers
 provider "gitlab" {
   base_url = local.gitlab
 }
