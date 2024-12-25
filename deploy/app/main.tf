@@ -39,6 +39,8 @@ task_store_backend:
 backends:
   exoscale_s3:
     protocol: s3
+  minio_s3:
+    protocol: s3
   openstack_swift:
     protocol: swift
 buckets:
