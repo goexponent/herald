@@ -5,3 +5,5 @@
   TF_VAR_MINIO_SECRET_KEY: op://exponent.1password.eu/Private/minio_token/password
   TF_VAR_OPENSTACK_USERNAME: op://exponent.1password.eu/Infra-shared/Openstack s3-herald/username
   TF_VAR_OPENSTACK_PASSWORD: op://exponent.1password.eu/Infra-shared/Openstack s3-herald/password
+  TF_VAR_XKS_EXOSCALE_KEY: op://exponent.1password.eu/Infra-shared/Exoscale cheel/username
+  TF_VAR_XKS_EXOSCALE_SECRET: op://exponent.1password.eu/Infra-shared/Exoscale cheel/password

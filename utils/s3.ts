@@ -5,7 +5,9 @@ import {
   ListObjectsV2Command,
   S3Client,
   S3ClientConfig,
+  ServiceOutputTypes,
 } from "aws-sdk/client-s3";
+import { assert, assertEquals } from "std/assert";
 
 export function getS3Client(config: S3ClientConfig) {
   // deno-lint-ignore require-await no-explicit-any
@@ -69,7 +71,7 @@ export async function listObjects(client: S3Client, bucketName: string) {
     const res = await client.send(listCommand);
     return res.Contents ?? [];
   } catch (e) {
-    if (e.name === "NoSuchBucket") {
+    if ((e as Error).name === "NoSuchBucket") {
       return null;
     }
     throw e;
@@ -82,4 +84,84 @@ export async function setupBucket(client: S3Client, bucketName: string) {
     Bucket: bucketName,
   });
   await client.send(createBucket);
+}
+
+export function checkPutObject(res: ServiceOutputTypes) {
+  const actual = res.$metadata.httpStatusCode;
+  const expected = [200, 201]; // Allowed values
+
+  assert(actual !== undefined && expected.includes(actual));
+}
+
+export function checkDeleteObject(res: ServiceOutputTypes) {
+  assertEquals(res.$metadata.httpStatusCode, 204);
+}
+
+export function checkUpload(res: ServiceOutputTypes) {
+  assertEquals(res.$metadata.httpStatusCode, 200);
+}
+
+export function checkCreateBucket(res: ServiceOutputTypes) {
+  const actual = res.$metadata.httpStatusCode;
+  const expected = [200, 201]; // Allowed values
+
+  assert(actual !== undefined && expected.includes(actual));
+}
+
+export function checkDeleteBucket(res: ServiceOutputTypes) {
+  assertEquals(res.$metadata.httpStatusCode, 204);
+}
+
+export function checkListObjects(res: ServiceOutputTypes) {
+  assertEquals(res.$metadata.httpStatusCode, 200);
+}
+
+export function checkGetObject(res: ServiceOutputTypes) {
+  assertEquals(res.$metadata.httpStatusCode, 200);
+}
+
+export function checkHeadObject(res: ServiceOutputTypes) {
+  assertEquals(res.$metadata.httpStatusCode, 200);
+}
+
+export function checkCopyObject(res: ServiceOutputTypes) {
+  const actual = res.$metadata.httpStatusCode;
+  const expected = [200, 201]; // Allowed values
+
+  assert(actual !== undefined && expected.includes(actual));
+}
+
+export async function createBucketWithoutSDK(
+  endpoint: string,
+  bucketName: string,
+  region: string,
+  accessKeyId: string,
+) {
+  const url = `${endpoint}/${bucketName}`;
+  const date = new Date().toUTCString();
+  const payload = `<?xml version="1.0" encoding="UTF-8"?>
+<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <LocationConstraint>${region}</LocationConstraint>
+</CreateBucketConfiguration>`;
+
+  const headers = {
+    "Content-Type": "application/xml",
+    "Host": new URL(url).host,
+    "x-amz-date": date,
+    "Authorization": `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${
+      date.slice(12, 22)
+    }/${region}/s3/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=`,
+  };
+
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: headers,
+    body: payload,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to create bucket: ${response.statusText}`);
+  }
+
+  return response;
 }

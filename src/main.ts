@@ -1,11 +1,12 @@
 import { Hono } from "@hono/hono";
 
 import { configInit, envVarsConfig, globalConfig } from "./config/mod.ts";
-import { getLogger, setupLoggers } from "./utils/log.ts";
+import { getLogger, reportToSentry, setupLoggers } from "./utils/log.ts";
 import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
 import { decodeToken } from "./auth/mod.ts";
+// import { taskHandler } from "./backends/tasks.ts";
 
 // setup
 await configInit();
@@ -28,6 +29,13 @@ Sentry.init({
   // ],
   debug: true,
 });
+self.addEventListener("error", (event: ErrorEvent) => {
+  Sentry.captureException(event.error);
+});
+
+self.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
+  Sentry.captureException(event.reason);
+});
 
 const app = new Hono();
 const logger = getLogger(import.meta);
@@ -46,29 +54,40 @@ app.all("/*", async (c) => {
     return c.text(healthStatus, 200);
   }
 
-  decodeToken(c.req.header("Authorization") || "");
+  if (envVarsConfig.env === "PROD") {
+    decodeToken(c.req.header("Authorization") || "");
+  }
 
   if (path === "/") {
     return c.text("Proxy is running...", 200);
   }
 
-  return await resolveHandler(c);
+  const response = await resolveHandler(c);
+  return response;
 });
 
 app.notFound((c) => {
-  logger.warn(`Resource not found: ${c.req.url}`);
+  const errMessage = `Resource not found: ${c.req.url}`;
+  logger.warn(errMessage);
+  reportToSentry(errMessage);
   return c.text("Not Found", 404);
 });
 
 app.onError((err, c) => {
   if (err instanceof HTTPException) {
     // Get the custom response
-    logger.critical(`HTTP Exception: ${err.message}`);
-    return err.getResponse();
+    const errResponse = err.getResponse();
+
+    return errResponse;
   }
 
-  return c.text("Something wrong happened in the proxy.");
+  const errMessage = "Something wrong happened in the proxy.";
+  logger.error(errMessage);
+  reportToSentry(errMessage);
+  return c.text(errMessage);
 });
+
+// taskHandler();
 
 Deno.serve({ port: globalConfig.port }, app.fetch);
 

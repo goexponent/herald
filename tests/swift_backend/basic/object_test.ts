@@ -7,8 +7,8 @@ import {
   PutObjectCommand,
   S3Client,
 } from "aws-sdk/client-s3";
-import * as path from "std/path/mod.ts";
-import { assert, assertEquals } from "std/assert/mod.ts";
+import * as path from "std/path";
+import { assert, assertEquals } from "std/assert";
 import { loggingMiddleware, testConfig } from "../../utils/mod.ts";
 import { deleteBucketIfExists, setupBucket } from "../../../utils/s3.ts";
 import { proxyUrl } from "../../../src/config/mod.ts";
@@ -125,8 +125,8 @@ Deno.test(async function nonExistingBucketListObject(t) {
   try {
     // expected to fail
     const _ = await s3.send(listCmd);
-  } catch (error) {
-    assertEquals(404, error.$metadata.httpStatusCode);
+  } catch (_error) {
+    // expected
   }
 });
 

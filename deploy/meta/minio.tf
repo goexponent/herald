@@ -1,15 +1,16 @@
+# tflint-ignore: terraform_required_providers
 resource "helm_release" "minio" {
   name       = "minio"
   repository = "https://charts.bitnami.com/bitnami"
   chart      = "minio"
   version    = "14.7.8"
 
-  namespace  = local.namespace
+  namespace = local.namespace
 
   timeout = 60
   wait    = true
 
-# https://github.com/bitnami/charts/blob/main/bitnami/minio/values.yaml
+  # https://github.com/bitnami/charts/blob/main/bitnami/minio/values.yaml
   values = [
     <<EOF
 image:
