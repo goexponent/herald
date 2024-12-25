@@ -1,0 +1,9 @@
+logs
+*.log
+.DS_Store
+.env
+.env.local
+.env.*.local
+/build
+test.http
+.DS_Store
