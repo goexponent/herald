@@ -14,11 +14,13 @@ inputs = {
     cluster       = "195.15.199.57"
     context = "expo-test"
     dns = {
-       "selfserved.dev" : {
-        "s3.selfserved.dev" : "expo-test.exponent.ch",
+      "selfserved.dev" : {
+        "herald.selfserved.dev" : "expo-test.exponent.ch",
       },
     }
     swift_bucket = "swift-test"
+    exoscale_region = "ch-dk-2"
+    exoscale_bucket = "stg-datacycle"
   }
   stg = {
     environment   = "staging"
@@ -29,9 +31,11 @@ inputs = {
     context       = "expo-test"
     dns = {
       "selfserved.cloud" : {
-        "dev-herald.selfserved.cloud" : "selfserved.cloud",
+        "herald.selfserved.cloud" : "selfserved.cloud",
       },
     }
     swift_bucket = "swift-stg"
+    exoscale_region = "ch-dk-2"
+    exoscale_bucket = "s3-test"
   }
 }

@@ -31,31 +31,7 @@ variable "gitlab_project" {
   type = string
 }
 
-variable "gitlab_project_id" {
-  type = string
-}
-
-variable "gitlab" {
-  type = string
-}
-
 variable "namespace" {
-  type = string
-}
-
-variable "cluster" {
-  type = string
-}
-
-variable "environment" {
-  type = string
-}
-
-variable "infisical_url" {
-  type = string
-}
-
-variable "infisical_env" {
   type = string
 }
 
@@ -65,4 +41,27 @@ variable "context" {
 
 variable "dns" {
   type = map(map(string))
+}
+
+variable "swift_bucket" {
+  type = string
+}
+variable "XKS_EXOSCALE_KEY" {
+  type = string
+}
+
+variable "XKS_EXOSCALE_SECRET" {
+  type = string
+}
+
+variable "exoscale_region" {
+  type = string
+}
+
+variable "exoscale_bucket" {
+  type = string
+}
+
+variable "pod1_uid" {
+  type = string
 }

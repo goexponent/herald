@@ -1,9 +1,10 @@
-import { LevelName, Logger } from "std/log/mod.ts";
-import { basename, dirname, extname } from "std/path/mod.ts";
-import * as log from "std/log/mod.ts";
-import { ensureDir, exists } from "std/fs/mod.ts";
+import { LevelName, Logger } from "std/log";
+import { basename, dirname, extname } from "std/path";
+import * as log from "std/log";
+import { ensureDir, exists } from "std/fs";
 import { envVarsConfig } from "../config/mod.ts";
-import { magenta } from "std/fmt/colors.ts";
+import { magenta } from "std/fmt/colors";
+import * as Sentry from "sentry";
 
 const logFilePath = "logs/.log";
 const loggers = new Map<string, Logger>();
@@ -85,6 +86,14 @@ export function getLogger(
 
   const logger = log.getLogger(name ?? undefined);
   return logger;
+}
+
+export function reportToSentry(error: string | Error) {
+  if (typeof error === "string") {
+    Sentry.captureException(new Error(error));
+  } else {
+    Sentry.captureException(error);
+  }
 }
 
 export { Logger };

@@ -1,4 +1,4 @@
-import { basename } from "std/path/mod.ts";
+import { basename } from "std/path/basename";
 import { createTempFile, createTempStream } from "../../utils/file.ts";
 import { getS3Client, listObjects, setupBucket } from "../../utils/s3.ts";
 import {

@@ -1,5 +1,15 @@
+terraform {
+  required_version = ">= 1.4.6"
 
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
 
+# tflint-ignore: terraform_required_providers
 provider "aws" {
 
   endpoints {
@@ -7,7 +17,7 @@ provider "aws" {
     s3 = "http://localhost:8000/"
   }
 
-  region     = "local"
+  region = "local"
 
   # swift keys
   access_key = "test:tester"
@@ -22,6 +32,6 @@ provider "aws" {
   skip_credentials_validation = true
   skip_region_validation      = true
   skip_requesting_account_id  = true
-  s3_use_path_style            = true
+  s3_use_path_style           = true
   # skip_s3_checksum            = true
 }

@@ -3,7 +3,7 @@ import {
   DeleteBucketCommand,
   S3Client,
 } from "aws-sdk/client-s3";
-import { assertEquals } from "std/assert/mod.ts";
+import { assertEquals } from "std/assert";
 import { loggingMiddleware, testConfig } from "../../utils/mod.ts";
 import { proxyUrl } from "../../../src/config/mod.ts";
 import { deleteBucketIfExists } from "../../../utils/s3.ts";

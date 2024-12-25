@@ -18,6 +18,8 @@ export const HOST_HEADER = "Host";
 export const AMZ_SDK_REQUEST_ID_HEADER = "amz-sdk-invocation-id";
 export const AMZ_SDK_REQUEST_HEADER = "amz-sdk-request";
 export const CONTENT_LENGTH_HEADER = "Content-Length";
+export const S3_COPY_SOURCE_HEADER = "x-amz-copy-source";
 
 // OpenStack
 export const OPENSTACK_AUTH_TOKEN_HEADER = "x-subject-token";
+export const SWIFT_COPY_DESTINATION_HEADER = "x-copy-from";

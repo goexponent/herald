@@ -1,5 +1,5 @@
 import { shell } from "./shell.ts";
-import { assertSnapshot } from "std/testing/snapshot.ts";
+import { assertSnapshot } from "std/testing/snapshot";
 
 export async function testTerraform(
   path: string,

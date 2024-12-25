@@ -1,5 +1,11 @@
 import { z } from "zod";
 import {
+  Backend,
+  BackupConfig,
+  BackupS3Config,
+  backupS3ConfigSchema,
+  BackupSwiftConfig,
+  backupSwiftConfigSchema,
   EnvVarConfig,
   GlobalConfig,
   globalConfigSchema,
@@ -11,10 +17,10 @@ import {
   swiftBucketConfigSchema,
 } from "./types.ts";
 import { parse } from "@std/yaml";
-import { deepMerge } from "std/collections/mod.ts";
+import { deepMerge } from "std/collections";
 import { envVarConfigSchema } from "./types.ts";
 import { globalConfig } from "./mod.ts";
-import { red } from "std/fmt/colors.ts";
+import { red } from "std/fmt/colors";
 
 // const logger = getLogger(import.meta, "INFO");
 
@@ -63,6 +69,69 @@ export async function loadConfig(): Promise<GlobalConfig> {
   return config;
 }
 
+function validateBackupProvidersConfig(
+  backupConfigs: BackupConfig[],
+  backendConfigs: Record<string, Backend>,
+  bucketName: string,
+) {
+  for (const backupConfig of backupConfigs) {
+    const backendDefinition = backendConfigs[backupConfig.backend];
+    if (!backendDefinition) {
+      throw new Error(
+        `Backend Configuration missing for backup backend: ${backupConfig.backend} with bucket: ${bucketName}`,
+      );
+    }
+    const protocol = backendDefinition.protocol;
+    if (protocol === "s3") {
+      configOrExit(backupS3ConfigSchema, {}, [
+        backupConfig,
+      ]);
+    } else {
+      configOrExit(backupSwiftConfigSchema, {}, [
+        backupConfig,
+      ]);
+    }
+  }
+}
+
+function configToString(
+  config:
+    | BackupS3Config
+    | BackupSwiftConfig
+    | S3BucketConfig
+    | SwiftBucketConfig,
+) {
+  if (config.typ === "BackupS3Config" || config.typ === "S3BucketConfig") {
+    const conf = config.config;
+    return `${conf.endpoint}-${conf.region}-${conf.bucket}`;
+  }
+
+  const conf = config.config;
+  return `${conf.auth_url}-${conf.region}-${conf.credentials.project_name}-${conf.container}`;
+}
+
+function checkDuplicateBackupConfig(
+  bucketConfig: S3BucketConfig | SwiftBucketConfig,
+  bucketName: string,
+) {
+  const backups = bucketConfig.backups;
+  if (!backups) {
+    return;
+  }
+
+  const configs = new Set<string>();
+  configs.add(configToString(bucketConfig));
+  for (const backup of backups) {
+    const configStr = configToString(backup);
+    if (configs.has(configStr)) {
+      throw new Error(
+        `Invalid Config: Duplicate providers found for ${bucketName}`,
+      );
+    }
+    configs.add(configStr);
+  }
+}
+
 function validateProtocol(config: GlobalConfig) {
   const buckets = config.buckets;
   for (const [bucketName, bucketConfig] of Object.entries(buckets)) {
@@ -82,6 +151,16 @@ function validateProtocol(config: GlobalConfig) {
       configOrExit(swiftBucketConfigSchema, {}, [
         bucketConfig,
       ]);
+
+      // validate backup providers
+      if (bucketConfig.backups) {
+        validateBackupProvidersConfig(
+          bucketConfig.backups,
+          config.backends,
+          bucketName,
+        );
+        checkDuplicateBackupConfig(bucketConfig, bucketName);
+      }
     }
   }
 }
@@ -184,7 +263,7 @@ export function configOrExit<T extends z.ZodRawShape>(
       console.error(red(Deno.inspect(e.issues)));
     } else {
       // deno-lint-ignore no-console
-      console.error(red(e));
+      console.error(red(String(e)));
     }
     Deno.exit(1);
   }

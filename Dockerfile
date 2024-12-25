@@ -1,12 +1,15 @@
+# checkov:skip=CKV_DOCKER_2: Health check managed elsewhere
+# checkov:skip=CKV_DOCKER_3: User settings managed elsewhere
 FROM denoland/deno:alpine-1.46.3
 
 WORKDIR /app
 
-COPY import_map.json deno.jsonc herald-compose.yaml ./
+COPY import_map.json deno.jsonc ./
 
 COPY ./src ./src
 
 RUN deno cache ./src/main.ts
+RUN ls -l src/main.ts
 
 ENTRYPOINT ["deno"]
-CMD ["task", "start"]
+CMD ["run", "-A", "--unstable-kv", "src/main.ts"]

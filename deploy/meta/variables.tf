@@ -59,3 +59,19 @@ variable "dns" {
 variable "swift_bucket" {
   type = string
 }
+
+variable "XKS_EXOSCALE_KEY" {
+  type = string
+}
+
+variable "XKS_EXOSCALE_SECRET" {
+  type = string
+}
+
+variable "exoscale_region" {
+  type = string
+}
+
+variable "exoscale_bucket" {
+  type = string
+}

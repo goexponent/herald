@@ -1,4 +1,4 @@
-import * as http from "std/http/mod.ts";
+import * as http from "std/http";
 
 export enum APIErrors {
   ErrAuthHeaderEmpty,
