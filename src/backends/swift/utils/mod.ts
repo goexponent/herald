@@ -1,6 +1,6 @@
 import * as xml2js from "xml2js";
 
-function formatRFC3339Date(dateString: string): string {
+export function formatRFC3339Date(dateString: string): string {
   // Convert the string into a Date object
   const date = new Date(dateString);
 

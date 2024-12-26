@@ -9,7 +9,9 @@ import {
 } from "./types.ts";
 import { HTTPException } from "../types/http-exception.ts";
 import { isIP } from "../utils/url.ts";
+import { getLogger } from "./log.ts";
 
+const logger = getLogger(import.meta);
 export function getS3Client(bucketName: string) {
   // deno-lint-ignore require-await no-explicit-any
   const loggingMiddleware = (next: any) => async (args: any) => {
@@ -41,10 +43,11 @@ export function getS3Client(bucketName: string) {
   return s3;
 }
 
-function extractMethod(request: HonoRequest) {
+function extractMethod(request: HonoRequest | Request) {
   const parseResult = methodSchema.safeParse(request.method);
 
   if (!parseResult.success) {
+    logger.critical(`Error Parsing Request Method: ${request.method}`);
     throw new Error(`Error Parsing Request Method: ${request.method}`);
   }
 
@@ -52,13 +55,14 @@ function extractMethod(request: HonoRequest) {
   return method;
 }
 
-function extractBucketName(request: HonoRequest): string | undefined {
+function extractBucketName(request: Request): string | undefined {
   const urlFormat = getUrlFormat(request);
-  const path = request.path;
+  const url = new URL(request.url);
+  const path = url.pathname;
   const pathParts = path.split("/").filter((part) => part.length > 0);
 
   if (urlFormat === urlFormatStyle.Values.VirtualHosted) {
-    const host = request.header("host");
+    const host = request.headers.get("host");
     const hostParts = host!.split(".");
     return hostParts[0];
   } else {
@@ -67,9 +71,10 @@ function extractBucketName(request: HonoRequest): string | undefined {
   }
 }
 
-function extractObjectKey(request: HonoRequest): string | undefined {
+function extractObjectKey(request: Request): string | undefined {
   const urlFormat = getUrlFormat(request);
-  const path = request.path;
+  const url = new URL(request.url);
+  const path = url.pathname;
   const pathParts = path.split("/").filter((part) => part.length > 0);
 
   if (urlFormat === urlFormatStyle.Values.VirtualHosted) {
@@ -87,8 +92,8 @@ function extractObjectKey(request: HonoRequest): string | undefined {
  * @returns The URL format style (VirtualHosted or Path).
  * @throws HTTPException if the request does not have a valid host.
  */
-function getUrlFormat(request: HonoRequest): URLFormatStyle {
-  const host = request.header("host");
+function getUrlFormat(request: Request): URLFormatStyle {
+  const host = request.headers.get("host");
   if (!host) {
     throw new HTTPException(400, {
       message: `Invalid request: ${request.url}`,
@@ -123,19 +128,30 @@ function getUrlFormat(request: HonoRequest): URLFormatStyle {
  * @param request - The HonoRequest object containing the request information.
  * @returns {RequestMeta} The extracted request metadata.
  */
-export function extractRequestInfo(request: HonoRequest): RequestMeta {
+export function extractRequestInfo(request: Request): RequestMeta {
   const bucketName = extractBucketName(request);
   const objectKey = extractObjectKey(request);
   const urlFormat = getUrlFormat(request);
   const method = extractMethod(request);
-  const queryParams = request.queries();
+  const url = new URL(request.url);
+  const queryParams = url.searchParams;
+  // Initialize a Record to store the parameters
+  const queryRecord: Record<string, string[]> = {};
+
+  // Iterate through all parameters
+  queryParams.forEach((value, key) => {
+    if (!queryRecord[key]) {
+      queryRecord[key] = [];
+    }
+    queryRecord[key].push(value);
+  });
 
   const reqMeta: RequestMeta = {
     bucket: bucketName,
     objectKey: objectKey || null,
     urlFormat,
     method,
-    queryParams,
+    queryParams: queryRecord,
   };
 
   return reqMeta;

@@ -9,6 +9,7 @@ terraform {
   }
 }
 
+
 # tflint-ignore: terraform_required_providers
 provider "aws" {
 
@@ -17,16 +18,10 @@ provider "aws" {
     s3 = "http://localhost:8000/"
   }
 
-  region = "local"
+  region = "us-east-1"
 
-  # swift keys
   access_key = "test:tester"
   secret_key = "testing"
-
-  # s3 keys
-  # access_key = "minio"
-  # secret_key = "password"
-
 
   # Disable AWS-specific features
   skip_credentials_validation = true

@@ -1,78 +1,124 @@
-import { Context } from "@hono/hono";
-import { SwiftBucketConfig } from "../../config/mod.ts";
-import { getLogger } from "../../utils/log.ts";
-import { extractRequestInfo } from "../../utils/mod.ts";
+import { getLogger, reportToSentry } from "../../utils/log.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
-import { getBodyFromHonoReq } from "../../utils/url.ts";
-import { toS3XmlContent } from "./utils/mod.ts";
+import {
+  getBodyFromReq,
+  retryWithExponentialBackoff,
+} from "../../utils/url.ts";
+import { formatRFC3339Date, toS3XmlContent } from "./utils/mod.ts";
 import { NoSuchBucketException } from "../../constants/errors.ts";
-
+import {
+  isBucketConfig,
+  SwiftBucketConfig,
+  SwiftConfig,
+} from "../../config/types.ts";
+import { S3_COPY_SOURCE_HEADER } from "../../constants/headers.ts";
+import { s3Utils } from "../../utils/mod.ts";
+import { prepareMirrorRequests } from "../mirror.ts";
 const logger = getLogger(import.meta);
 
 export async function putObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Put Object Request...");
-
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
+  logger.debug(`Request: ${Deno.inspect(req)}`);
+
+  let config: SwiftConfig;
+  let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      config,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
-  const response = await fetch(reqUrl, {
-    method: "PUT",
-    headers: headers,
-    body: getBodyFromHonoReq(c.req),
-  });
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "PUT",
+      headers: headers,
+      body: getBodyFromReq(req),
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
 
   if (response.status !== 201) {
-    logger.warn(`Put Object Failed: ${response.statusText}`);
+    const errMessage = `Put Object Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+    reportToSentry(errMessage);
   } else {
     logger.info(`Put Object Successful: ${response.statusText}`);
+    if (mirrorOperation) {
+      await prepareMirrorRequests(
+        req,
+        bucketConfig as SwiftBucketConfig,
+        "putObject",
+      );
+    }
   }
 
   return response;
 }
 
 export async function getObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response | undefined> {
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
+): Promise<Response> {
   logger.info("[Swift backend] Proxying Get Object Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
+  let config: SwiftConfig;
+  // let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      // mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
+
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      config,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
-  const response = await fetch(reqUrl, {
-    method: "GET",
-    headers: headers,
-    body: getBodyFromHonoReq(c.req),
-  });
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "GET",
+      headers: headers,
+      body: getBodyFromReq(req),
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
 
   if (response.status !== 200) {
-    logger.warn(`Get Object Failed: ${response.statusText}`);
+    const errMessage = `Get Object Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+    reportToSentry(errMessage);
   } else {
     logger.info(`Get Object Successful: ${response.statusText}`);
   }
@@ -81,56 +127,90 @@ export async function getObject(
 }
 
 export async function deleteObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Delete Object Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
+  let config: SwiftConfig;
+  let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
+
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      config,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
-  const response = await fetch(reqUrl, {
-    method: "DELETE",
-    headers: headers,
-    body: getBodyFromHonoReq(c.req),
-  });
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "DELETE",
+      headers: headers,
+      body: getBodyFromReq(req),
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
 
   if (response.status !== 204) {
-    logger.warn(`Delete Object Failed: ${response.statusText}`);
+    const errMessage = `Delete Object Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+    reportToSentry(errMessage);
   } else {
     logger.info(`Delete Object Successful: ${response.statusText}`);
+    if (mirrorOperation) {
+      await prepareMirrorRequests(
+        req,
+        bucketConfig as SwiftBucketConfig,
+        "deleteObject",
+      );
+    }
   }
 
   return response;
 }
 
 export async function listObjects(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response | undefined> {
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
+): Promise<Response> {
   logger.info("[Swift backend] Proxying Get List of Objects Request...");
 
-  const { bucket, queryParams: query } = extractRequestInfo(c.req);
+  const { bucket, queryParams: query } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
+  let config: SwiftConfig;
+  // let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      // mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
+
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      config,
     );
   const headers = getSwiftRequestHeaders(authToken);
 
@@ -147,11 +227,14 @@ export async function listObjects(
 
   const reqUrl = `${swiftUrl}/${bucket}?${params.toString()}`;
 
-  const response = await fetch(reqUrl, {
-    method: "GET",
-    headers: headers,
-    body: getBodyFromHonoReq(c.req),
-  });
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "GET",
+      headers: headers,
+      body: getBodyFromReq(req),
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
 
   if (response.status === 404) {
     logger.warn(`Get List of Objects Failed: ${response.statusText}`);
@@ -174,33 +257,49 @@ export async function listObjects(
 }
 
 export async function getObjectMeta(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Get Object Meta Request...");
 
-  const { bucket, objectKey: object } = extractRequestInfo(c.req);
+  const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
     throw new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
+  let config: SwiftConfig;
+  // let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      // mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
+
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
-      bucketConfig.config,
+      config,
     );
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
-  const response = await fetch(reqUrl, {
-    method: "GET",
-    headers: headers,
-    body: getBodyFromHonoReq(c.req),
-  });
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "GET",
+      headers: headers,
+      body: getBodyFromReq(req),
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
 
   if (response.status !== 201) {
-    logger.warn(`Get Object Meta Failed: ${response.statusText}`);
+    const errMessage = `Get Object Meta Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+    reportToSentry(errMessage);
   } else {
     logger.info(`Get Object Meta Successful: ${response.statusText}`);
   }
@@ -209,27 +308,41 @@ export async function getObjectMeta(
 }
 
 export async function headObject(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Head Object Request...");
 
-  const { bucket, objectKey } = extractRequestInfo(c.req);
+  const { bucket, objectKey } = s3Utils.extractRequestInfo(req);
   if (!bucket || !objectKey) {
     throw new HTTPException(404, {
       message: "Bucket or object information missing from the request",
     });
   }
 
+  let config: SwiftConfig;
+  // let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      // mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
+
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${objectKey}`;
 
-  const response = await fetch(reqUrl, {
-    method: "HEAD",
-    headers: headers,
-  });
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "HEAD",
+      headers: headers,
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
 
   if (response.status >= 300) {
     logger.warn(`Head object Failed: ${response.statusText}`);
@@ -245,4 +358,97 @@ export async function headObject(
   });
 
   return headResponse;
+}
+
+// currently supports copy within the same project
+export async function copyObject(
+  req: Request,
+  bucketConfig: SwiftConfig | SwiftBucketConfig,
+): Promise<Response> {
+  logger.info("[Swift backend] Proxying Copy Object Request...");
+  const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
+  if (!bucket) {
+    throw new HTTPException(400, {
+      message: "Bucket information missing from the request",
+    });
+  }
+
+  let config: SwiftConfig;
+  let mirrorOperation = false;
+  if (isBucketConfig(bucketConfig)) {
+    config = bucketConfig.config;
+    if (bucketConfig.backups) {
+      mirrorOperation = true;
+    }
+  } else {
+    config = bucketConfig as SwiftConfig;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } =
+    await getAuthTokenWithTimeouts(
+      config,
+    );
+  const headers = getSwiftRequestHeaders(authToken);
+  const copySource = `/${bucket}/${object}`;
+  headers.set(S3_COPY_SOURCE_HEADER, copySource);
+  const reqUrl = `${swiftUrl}/${bucket}/${object}`;
+
+  const fetchFunc = async () => {
+    return await fetch(reqUrl, {
+      method: "PUT",
+      headers: headers,
+      body: getBodyFromReq(req),
+    });
+  };
+  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  if (response.status !== 201) {
+    const errMessage = `Copy Object Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+    reportToSentry(errMessage);
+  } else {
+    logger.info(`Copy Object Successful: ${response.statusText}`);
+    if (mirrorOperation) {
+      await prepareMirrorRequests(
+        req,
+        bucketConfig as SwiftBucketConfig,
+        "copyObject",
+      );
+    }
+  }
+
+  const s3ResponseHeaders = new Headers();
+  s3ResponseHeaders.set(
+    "x-amz-copy-source-version-id",
+    response.headers.get("x-openstack-request-id") || "",
+  );
+  s3ResponseHeaders.set(
+    "x-amz-version-id",
+    response.headers.get("x-openstack-request-id") || "",
+  );
+  s3ResponseHeaders.set("x-amz-id-2", response.headers.get("x-trans-id") || "");
+  s3ResponseHeaders.set(
+    "x-amz-request-id",
+    response.headers.get("x-openstack-request-id") || "",
+  );
+  s3ResponseHeaders.set("ETag", response.headers.get("etag") || "");
+
+  let lastModified = response.headers.get("last-modified");
+  if (!lastModified) {
+    lastModified = "1970-01-01T00:00:00.000Z"; // default value for entries with no date
+  }
+  const s3ResponseBody = `
+    <CopyObjectResult>
+      <LastModified>${formatRFC3339Date(lastModified)}</LastModified>
+      <ETag>${response.headers.get("etag")}</ETag>
+    </CopyObjectResult>
+    `;
+
+  const s3Response = new Response(s3ResponseBody, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: s3ResponseHeaders,
+  });
+
+  return s3Response;
 }

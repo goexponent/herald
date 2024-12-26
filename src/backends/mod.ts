@@ -7,14 +7,19 @@ import {
   SwiftBucketConfig,
 } from "../config/mod.ts";
 import { s3Resolver } from "./s3/mod.ts";
-import { extractRequestInfo } from "../utils/mod.ts";
 import { swiftResolver } from "./swift/mod.ts";
+import { extractRequestInfo } from "../utils/s3.ts";
+import { getLogger } from "../utils/log.ts";
+
+const logger = getLogger(import.meta);
 
 export async function resolveHandler(c: Context) {
-  const reqInfo = extractRequestInfo(c.req);
+  logger.debug("Resolving Handler for Request...");
+  const reqInfo = extractRequestInfo(c.req.raw);
   const { bucket } = reqInfo;
 
   if (!bucket) {
+    logger.critical("Bucket not specified in the request");
     throw new HTTPException(400, {
       message: "Bucket not specified in the request",
     });
@@ -22,6 +27,7 @@ export async function resolveHandler(c: Context) {
 
   const bucketConfig = getBucketConfig(bucket);
   if (!bucketConfig) {
+    logger.critical(`Bucket Configuration missing for bucket: ${bucket}`);
     throw new HTTPException(404, {
       message: `Bucket Configuration missing for bucket: ${bucket}`,
     });
@@ -30,6 +36,9 @@ export async function resolveHandler(c: Context) {
   const backendName = bucketConfig.backend;
   const bucketBackendDef = getBackendDef(backendName);
   if (!bucketBackendDef) {
+    logger.critical(
+      `Backend Configuration missing for backend with name: ${backendName} under bucket: ${bucket}`,
+    );
     throw new HTTPException(404, {
       message:
         `Backend Configuration missing for backend with name: ${backendName} under bucket: ${bucket}`,
@@ -44,6 +53,7 @@ export async function resolveHandler(c: Context) {
     const swiftConfig = bucketConfig as SwiftBucketConfig;
     return await swiftResolver(c, swiftConfig);
   } else {
+    logger.critical(`Unsupported Backend Protocol: ${protocol}`);
     throw new HTTPException(400, { message: "Unsupported Backend Protocol" });
   }
 }

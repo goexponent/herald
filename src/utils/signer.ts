@@ -115,9 +115,9 @@ function extractSignedHeaders(request: Request) {
  */
 export async function signRequestV4(
   req: Request,
-  bucketConfig: S3BucketConfig,
+  bucketConfig: S3Config,
 ) {
-  const signer = getV4Signer(bucketConfig.config);
+  const signer = getV4Signer(bucketConfig);
 
   const reqUrl = new URL(req.url);
   const crtHeaders: [string, string][] = [];
@@ -126,9 +126,24 @@ export async function signRequestV4(
     "accept-encoding",
     "accept-language",
     "content-length",
-    // "content-md5",
+    "content-md5",
     "amz-sdk-invocation-id",
     "amz-sdk-request",
+    "cdn-loop",
+    "cf-connecting-ip",
+    "cf-ipcountry",
+    "cf-ray",
+    "cf-visitor",
+    "content-type",
+    "x-forwarded-for",
+    "x-forwarded-host",
+    "x-forwarded-port",
+    "x-forwarded-proto",
+    "x-forwarded-scheme",
+    "x-original-forwarded-for",
+    "x-real-ip",
+    "x-request-id",
+    "x-scheme",
   ];
   const headersRecord: Record<string, string> = {};
   req.headers.forEach((val, key) => {
