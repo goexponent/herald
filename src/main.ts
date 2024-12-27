@@ -62,10 +62,12 @@ app.all("/*", async (c) => {
   if (!token) {
     const errMessage = "No token provided";
     throw new HTTPException(401, {
-      message: errMessage
-    },);
+      message: errMessage,
+    });
   }
-  const serviceAccountName = await authenicateRequestAndReturnPodServiceAccount(token);
+  const serviceAccountName = await authenicateRequestAndReturnPodServiceAccount(
+    token,
+  );
 
   const response = await resolveHandler(c, serviceAccountName);
   return response;

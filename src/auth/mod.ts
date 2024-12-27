@@ -35,7 +35,7 @@ async function verifyToken(token: string): Promise<DecodedToken> {
     JSON.parse(key),
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     true,
-    ["verify"]
+    ["verify"],
   );
   const verified = await verify(token, cryptoKey);
   return verified as DecodedToken;
