@@ -96,6 +96,7 @@ export const envVarConfigSchema = z.object({
     .enum(["NOTSET", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"])
     .optional(),
   env: z.enum(["DEV", "PROD"]).default("DEV"),
+  k8s_api: z.string(),
   config_file_path: z.string().default("herald.yaml"),
   version: z.string().default("0.1"),
   sentry_dsn: z.string().optional(),

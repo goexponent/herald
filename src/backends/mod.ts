@@ -13,7 +13,7 @@ import { getLogger } from "../utils/log.ts";
 
 const logger = getLogger(import.meta);
 
-export async function resolveHandler(c: Context) {
+export async function resolveHandler(c: Context, serviceAccoutnName: string) {
   logger.debug("Resolving Handler for Request...");
   const reqInfo = extractRequestInfo(c.req.raw);
   const { bucket } = reqInfo;
