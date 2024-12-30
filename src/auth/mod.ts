@@ -1,5 +1,5 @@
 import { verify } from "@djwt";
-import { envVarsConfig } from "../config/mod.ts";
+import { envVarsConfig, globalConfig } from "../config/mod.ts";
 import { getLogger } from "../utils/log.ts";
 import { retryFetchWithExponentialBackoff } from "../utils/url.ts";
 import { HTTPException } from "../types/http-exception.ts";
@@ -162,4 +162,18 @@ async function getServiceAccountToken(): Promise<string> {
     "/var/run/secrets/kubernetes.io/serviceaccount/token",
   );
   return new TextDecoder().decode(token);
+}
+
+export function hasBucketAccess(
+  serviceAccount: string,
+  bucket: string,
+): boolean {
+  const sa = globalConfig.service_accounts.find((sa) =>
+    sa.name === serviceAccount
+  );
+  if (!sa) {
+    throw new HTTPException(401, { message: "Service Account not found" });
+  }
+
+  return sa.buckets.includes(bucket);
 }
