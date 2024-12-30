@@ -48,6 +48,7 @@ export type SwiftBucketConfig = z.infer<typeof swiftBucketConfigSchema>;
 export type BucketConfig = S3BucketConfig | SwiftBucketConfig;
 
 export const replicaS3ConfigSchema = z.object({
+  name: z.string(),
   backend: z.string(),
   config: s3ConfigSchema,
   typ: z.literal("ReplicaS3Config").default("ReplicaS3Config"),
@@ -55,6 +56,7 @@ export const replicaS3ConfigSchema = z.object({
 export type ReplicaS3Config = z.infer<typeof replicaS3ConfigSchema>;
 
 export const replicaSwiftConfigSchema = z.object({
+  name: z.string(),
   backend: z.string(),
   config: swiftConfigSchema,
   typ: z.literal("ReplicaSwiftConfig").default("ReplicaSwiftConfig"),

@@ -106,15 +106,9 @@ function checkDuplicateBackupConfig(
   const configs = new Set<string>();
   for (const backup of config) {
     const configStr = configToString(backup);
-    let bucketName = "";
-    if (backup.typ === "ReplicaS3Config") {
-      bucketName = backup.config.bucket;
-    } else {
-      bucketName = backup.config.container;
-    }
     if (configs.has(configStr)) {
       throw new Error(
-        `Invalid Config: Duplicate providers found for ${bucketName}`,
+        `Invalid Config: Duplicate providers found for replica: ${backup.name}`,
       );
     }
     configs.add(configStr);

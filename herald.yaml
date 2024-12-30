@@ -99,7 +99,7 @@ replicas:
         project_name: "PCP-RP63UPV"
         user_domain_name: Default
         project_domain_name: Default
-      container: "s3-mirror-test"
+      container: "swift-mirror-test"
       region: dc3-a
   - name: swift-replica
     backend: openstack_swift
