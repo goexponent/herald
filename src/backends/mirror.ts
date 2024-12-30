@@ -1,6 +1,8 @@
 import {
-  BackupS3Config,
-  BackupSwiftConfig,
+  BucketConfig,
+  ReplicaConfig,
+  ReplicaS3Config,
+  ReplicaSwiftConfig,
   S3BucketConfig,
   S3Config,
   SwiftBucketConfig,
@@ -16,6 +18,7 @@ import { S3_COPY_SOURCE_HEADER } from "../constants/headers.ts";
 import { MirrorableCommands, MirrorTask } from "./types.ts";
 import taskStore from "./task_store.ts";
 import { deserializeToRequest, serializeRequest } from "../utils/url.ts";
+import { globalConfig } from "../config/mod.ts";
 
 const logger = getLogger(import.meta);
 
@@ -68,8 +71,21 @@ export async function prepareMirrorRequests(
 ) {
   logger.info("[S3 backend] mirroring requests...");
 
-  const backupBuckets = bucketConfig.backups!;
-  for (const backupConfig of backupBuckets) {
+  const replicaBuckets: ReplicaConfig[] = [];
+  for (const replica of globalConfig.replicas) {
+    const primaryBucket = bucketConfig.typ === "S3BucketConfig"
+      ? bucketConfig.config.bucket
+      : bucketConfig.config.container;
+
+    const replicaBucket = replica.typ === "ReplicaS3Config"
+      ? replica.config.bucket
+      : replica.config.container;
+
+    if (replicaBucket === primaryBucket) {
+      replicaBuckets.push(replica);
+    }
+  }
+  for (const backupConfig of replicaBuckets) {
     const task: MirrorTask = {
       mainBucketConfig: bucketConfig,
       backupBucketConfig: backupConfig,
@@ -84,7 +100,7 @@ export async function prepareMirrorRequests(
 function _getCopyObjectRequest(
   // This is a PutObject request
   request: Request,
-  backupConfig: BackupS3Config,
+  backupConfig: ReplicaS3Config,
 ): Request {
   const { bucket, objectKey } = s3Utils.extractRequestInfo(request);
   const copySource = `/${bucket}/${objectKey}`;
@@ -200,7 +216,7 @@ function extractContentType(request: Request): string {
 
 export async function mirrorPutObject(
   primary: S3BucketConfig | SwiftBucketConfig,
-  replica: BackupS3Config | BackupSwiftConfig,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
 ): Promise<void> {
   if (primary.typ === "S3BucketConfig") {
@@ -222,7 +238,7 @@ export async function mirrorPutObject(
       return;
     }
 
-    if (replica.typ === "BackupS3Config") {
+    if (replica.typ === "ReplicaS3Config") {
       // put object to s3
 
       const putToS3Request = new Request(originalRequest.url, {
@@ -291,7 +307,7 @@ export async function mirrorPutObject(
   }
 
   // this path means primary is swift
-  if (replica.typ === "BackupS3Config") {
+  if (replica.typ === "ReplicaS3Config") {
     // put object to s3
     const putToS3Request = new Request(originalRequest.url, {
       body: response.body,
@@ -343,11 +359,11 @@ export async function mirrorPutObject(
  * @param originalRequest
  */
 export async function mirrorDeleteObject(
-  replica: BackupS3Config | BackupSwiftConfig,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
 ): Promise<void> {
   switch (replica.typ) {
-    case "BackupS3Config": {
+    case "ReplicaS3Config": {
       const headers = new Headers(originalRequest.headers);
       headers.set(
         "Authorization",
@@ -362,7 +378,7 @@ export async function mirrorDeleteObject(
       await s3.deleteObject(modifiedRequest, replica.config);
       break;
     }
-    case "BackupSwiftConfig":
+    case "ReplicaSwiftConfig":
       await swift.deleteObject(originalRequest, replica.config);
       break;
     default:
@@ -376,11 +392,11 @@ export async function mirrorDeleteObject(
  * @param originalRequest
  */
 export async function mirrorCopyObject(
-  replica: BackupS3Config | BackupSwiftConfig,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
 ): Promise<void> {
   switch (replica.typ) {
-    case "BackupS3Config": {
+    case "ReplicaS3Config": {
       const headers = new Headers(originalRequest.headers);
       headers.set(
         "Authorization",
@@ -395,7 +411,7 @@ export async function mirrorCopyObject(
       await s3.copyObject(modifiedRequest, replica.config);
       break;
     }
-    case "BackupSwiftConfig":
+    case "ReplicaSwiftConfig":
       await swift.copyObject(originalRequest, replica.config);
       break;
     default:
@@ -405,9 +421,9 @@ export async function mirrorCopyObject(
 
 export async function mirrorCreateBucket(
   originalRequest: Request,
-  replica: BackupS3Config | BackupSwiftConfig,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
 ): Promise<void> {
-  if (replica.typ === "BackupS3Config") {
+  if (replica.typ === "ReplicaS3Config") {
     const headers = new Headers(originalRequest.headers);
     headers.set(
       "Authorization",
@@ -428,9 +444,9 @@ export async function mirrorCreateBucket(
 
 export async function mirrorDeleteBucket(
   originalRequest: Request,
-  replica: BackupS3Config | BackupSwiftConfig,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
 ) {
-  if (replica.typ === "BackupS3Config") {
+  if (replica.typ === "ReplicaS3Config") {
     const headers = new Headers(originalRequest.headers);
     headers.set(
       "Authorization",
@@ -477,4 +493,20 @@ export async function processTask(task: MirrorTask) {
       await mirrorDeleteBucket(originalRequest, backupBucketConfig);
       break;
   }
+}
+
+// FIXME: optimize replica checking
+export function hasReplica(bucketConfig: BucketConfig) {
+  const bucket = bucketConfig.typ === "S3BucketConfig"
+    ? bucketConfig.config.bucket
+    : bucketConfig.config.container;
+  for (const replica of globalConfig.replicas) {
+    const replicaBucket = replica.typ === "ReplicaS3Config"
+      ? replica.config.bucket
+      : replica.config.container;
+    if (replicaBucket === bucket) {
+      return true;
+    }
+  }
+  return false;
 }

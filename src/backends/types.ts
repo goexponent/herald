@@ -1,6 +1,6 @@
 import {
-  BackupS3Config,
-  BackupSwiftConfig,
+  ReplicaS3Config,
+  ReplicaSwiftConfig,
   S3BucketConfig,
   SwiftBucketConfig,
 } from "../config/types.ts";
@@ -21,7 +21,7 @@ export interface WorkerEvent {
  */
 export interface MirrorTask {
   mainBucketConfig: S3BucketConfig | SwiftBucketConfig;
-  backupBucketConfig: BackupS3Config | BackupSwiftConfig;
+  backupBucketConfig: ReplicaS3Config | ReplicaSwiftConfig;
   command: MirrorableCommands;
   originalRequest: Record<string, unknown>;
   nonce: string;

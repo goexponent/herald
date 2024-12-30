@@ -1,6 +1,5 @@
 import { decode } from "@djwt";
 import { HTTPException } from "../types/http-exception.ts";
-import { podsConfig } from "../config/mod.ts";
 import { getLogger } from "../utils/log.ts";
 
 interface DecodedToken {
@@ -14,13 +13,6 @@ interface DecodedToken {
 }
 
 const logger = getLogger(import.meta);
-
-function isSubInPodsConfig(payload: DecodedToken): boolean {
-  return podsConfig.pods.some((pod) =>
-    pod.sub === payload.sub &&
-    pod.serviceaccount.uid === payload["kubernetes.io"]?.serviceaccount.uid
-  );
-}
 
 export function decodeToken(token: string): DecodedToken | null {
   if (token.startsWith("Bearer ")) {
@@ -36,12 +28,12 @@ export function decodeToken(token: string): DecodedToken | null {
     });
   }
 
-  if (!isSubInPodsConfig(data)) {
-    logger.warn("Unauthorized");
-    throw new HTTPException(403, {
-      message: "Unauthorized",
-    });
-  }
+  // if (!isSubInPodsConfig(data)) {
+  //   logger.warn("Unauthorized");
+  //   throw new HTTPException(403, {
+  //     message: "Unauthorized",
+  //   });
+  // }
 
   return payload as DecodedToken;
 }

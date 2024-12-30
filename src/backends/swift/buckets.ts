@@ -11,7 +11,7 @@ import {
 import { MethodNotAllowedException } from "../../constants/errors.ts";
 import { XML_CONTENT_TYPE } from "../../constants/query-params.ts";
 import { isBucketConfig, SwiftConfig } from "../../config/types.ts";
-import { prepareMirrorRequests } from "../mirror.ts";
+import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
 import { HTTP_STATUS_CODES } from "../../constants/http_status_codes.ts";
 
 const logger = getLogger(import.meta);
@@ -40,7 +40,7 @@ export async function createBucket(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -107,7 +107,7 @@ export async function deleteBucket(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
