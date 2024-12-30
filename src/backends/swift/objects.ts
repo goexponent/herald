@@ -14,7 +14,7 @@ import {
 } from "../../config/types.ts";
 import { S3_COPY_SOURCE_HEADER } from "../../constants/headers.ts";
 import { s3Utils } from "../../utils/mod.ts";
-import { prepareMirrorRequests } from "../mirror.ts";
+import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
 const logger = getLogger(import.meta);
 
 export async function putObject(
@@ -34,7 +34,7 @@ export async function putObject(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -92,7 +92,7 @@ export async function getObject(
   // let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       // mirrorOperation = true;
     }
   } else {
@@ -143,7 +143,7 @@ export async function deleteObject(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -198,12 +198,8 @@ export async function listObjects(
   }
 
   let config: SwiftConfig;
-  // let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
-      // mirrorOperation = true;
-    }
   } else {
     config = bucketConfig as SwiftConfig;
   }
@@ -270,12 +266,8 @@ export async function getObjectMeta(
   }
 
   let config: SwiftConfig;
-  // let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
-      // mirrorOperation = true;
-    }
   } else {
     config = bucketConfig as SwiftConfig;
   }
@@ -321,12 +313,8 @@ export async function headObject(
   }
 
   let config: SwiftConfig;
-  // let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
-      // mirrorOperation = true;
-    }
   } else {
     config = bucketConfig as SwiftConfig;
   }
@@ -377,7 +365,7 @@ export async function copyObject(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {

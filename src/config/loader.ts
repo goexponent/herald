@@ -59,12 +59,9 @@ function validateBackupProvidersConfig(
   backendConfigs: Record<string, Backend>,
 ) {
   for (const backupConfig of replicaConfig) {
-    let bucketName = "";
-    if (backupConfig.typ === "ReplicaS3Config") {
-      bucketName = backupConfig.config.bucket;
-    } else {
-      bucketName = backupConfig.config.container;
-    }
+    const bucketName = backupConfig.typ === "ReplicaS3Config"
+      ? backupConfig.config.bucket
+      : backupConfig.config.container;
     const backendDefinition = backendConfigs[backupConfig.backend];
     if (!backendDefinition) {
       throw new Error(

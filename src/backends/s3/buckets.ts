@@ -3,7 +3,7 @@ import { formatParams, forwardRequestWithTimeouts } from "../../utils/url.ts";
 import { getLogger, reportToSentry } from "../../utils/log.ts";
 import { S3BucketConfig, S3Config } from "../../config/mod.ts";
 import { isBucketConfig } from "../../config/types.ts";
-import { prepareMirrorRequests } from "../mirror.ts";
+import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
 
 const logger = getLogger(import.meta);
 
@@ -17,7 +17,7 @@ export async function createBucket(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -57,7 +57,7 @@ export async function deleteBucket(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
