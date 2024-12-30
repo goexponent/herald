@@ -1,16 +1,14 @@
 import { z } from "zod";
 import {
   Backend,
-  BackupConfig,
-  BackupS3Config,
-  backupS3ConfigSchema,
-  BackupSwiftConfig,
-  backupSwiftConfigSchema,
   EnvVarConfig,
   GlobalConfig,
   globalConfigSchema,
-  PodsConfig,
-  podsConfigSchema,
+  ReplicaConfig,
+  ReplicaS3Config,
+  replicaS3ConfigSchema,
+  ReplicaSwiftConfig,
+  replicaSwiftConfigSchema,
   S3BucketConfig,
   s3BucketConfigSchema,
   SwiftBucketConfig,
@@ -36,19 +34,6 @@ async function readYamlFile(yamlFilePath: string) {
   return parse(fileContent);
 }
 
-export async function loadPodsConfig(): Promise<PodsConfig> {
-  // deno-lint-ignore no-explicit-any
-  const yamlConfig = await readYamlFile("pods.yaml") as any;
-
-  const config = configOrExit(
-    podsConfigSchema,
-    {}, // defaults
-    [yamlConfig],
-  ) as PodsConfig;
-
-  return config;
-}
-
 export async function loadConfig(): Promise<GlobalConfig> {
   const envConfig = loadEnvConfig();
   const yamlFilePath = envConfig.config_file_path;
@@ -70,11 +55,16 @@ export async function loadConfig(): Promise<GlobalConfig> {
 }
 
 function validateBackupProvidersConfig(
-  backupConfigs: BackupConfig[],
+  replicaConfig: ReplicaConfig[],
   backendConfigs: Record<string, Backend>,
-  bucketName: string,
 ) {
-  for (const backupConfig of backupConfigs) {
+  for (const backupConfig of replicaConfig) {
+    let bucketName = "";
+    if (backupConfig.typ === "ReplicaS3Config") {
+      bucketName = backupConfig.config.bucket;
+    } else {
+      bucketName = backupConfig.config.container;
+    }
     const backendDefinition = backendConfigs[backupConfig.backend];
     if (!backendDefinition) {
       throw new Error(
@@ -83,11 +73,11 @@ function validateBackupProvidersConfig(
     }
     const protocol = backendDefinition.protocol;
     if (protocol === "s3") {
-      configOrExit(backupS3ConfigSchema, {}, [
+      configOrExit(replicaS3ConfigSchema, {}, [
         backupConfig,
       ]);
     } else {
-      configOrExit(backupSwiftConfigSchema, {}, [
+      configOrExit(replicaSwiftConfigSchema, {}, [
         backupConfig,
       ]);
     }
@@ -96,12 +86,12 @@ function validateBackupProvidersConfig(
 
 function configToString(
   config:
-    | BackupS3Config
-    | BackupSwiftConfig
+    | ReplicaS3Config
+    | ReplicaSwiftConfig
     | S3BucketConfig
     | SwiftBucketConfig,
 ) {
-  if (config.typ === "BackupS3Config" || config.typ === "S3BucketConfig") {
+  if (config.typ === "ReplicaS3Config" || config.typ === "S3BucketConfig") {
     const conf = config.config;
     return `${conf.endpoint}-${conf.region}-${conf.bucket}`;
   }
@@ -111,18 +101,17 @@ function configToString(
 }
 
 function checkDuplicateBackupConfig(
-  bucketConfig: S3BucketConfig | SwiftBucketConfig,
-  bucketName: string,
+  config: ReplicaConfig[],
 ) {
-  const backups = bucketConfig.backups;
-  if (!backups) {
-    return;
-  }
-
   const configs = new Set<string>();
-  configs.add(configToString(bucketConfig));
-  for (const backup of backups) {
+  for (const backup of config) {
     const configStr = configToString(backup);
+    let bucketName = "";
+    if (backup.typ === "ReplicaS3Config") {
+      bucketName = backup.config.bucket;
+    } else {
+      bucketName = backup.config.container;
+    }
     if (configs.has(configStr)) {
       throw new Error(
         `Invalid Config: Duplicate providers found for ${bucketName}`,
@@ -151,17 +140,16 @@ function validateProtocol(config: GlobalConfig) {
       configOrExit(swiftBucketConfigSchema, {}, [
         bucketConfig,
       ]);
-
-      // validate backup providers
-      if (bucketConfig.backups) {
-        validateBackupProvidersConfig(
-          bucketConfig.backups,
-          config.backends,
-          bucketName,
-        );
-        checkDuplicateBackupConfig(bucketConfig, bucketName);
-      }
     }
+  }
+
+  // validate backup providers
+  if (config.replicas) {
+    validateBackupProvidersConfig(
+      config.replicas,
+      config.backends,
+    );
+    checkDuplicateBackupConfig(config.replicas);
   }
 }
 

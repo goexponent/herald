@@ -31,33 +31,9 @@ export const swiftConfigSchema = z.object({
 });
 export type SwiftConfig = z.infer<typeof swiftConfigSchema>;
 
-export const backupS3ConfigSchema = z.object({
-  backend: z.string(),
-  config: s3ConfigSchema,
-  typ: z.literal("BackupS3Config").default("BackupS3Config"),
-});
-export type BackupS3Config = z.infer<typeof backupS3ConfigSchema>;
-
-export const backupSwiftConfigSchema = z.object({
-  backend: z.string(),
-  config: swiftConfigSchema,
-  typ: z.literal("BackupSwiftConfig").default("BackupSwiftConfig"),
-});
-export type BackupSwiftConfig = z.infer<typeof backupSwiftConfigSchema>;
-
-export const backupConfigSchema = z.union([
-  backupS3ConfigSchema,
-  backupSwiftConfigSchema,
-]);
-export type BackupConfig = z.infer<typeof backupConfigSchema>;
-export function isBucketConfig(config: unknown): config is BucketConfig {
-  return (config as BucketConfig).typ !== undefined;
-}
-
 export const s3BucketConfigSchema = z.object({
   backend: z.string(),
   config: s3ConfigSchema,
-  backups: z.array(backupConfigSchema).optional(),
   typ: z.literal("S3BucketConfig").default("S3BucketConfig"),
 });
 export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
@@ -65,15 +41,46 @@ export type S3BucketConfig = z.infer<typeof s3BucketConfigSchema>;
 export const swiftBucketConfigSchema = z.object({
   backend: z.string(),
   config: swiftConfigSchema,
-  backups: z.array(backupConfigSchema).optional(),
   typ: z.literal("SwiftBucketConfig").default("SwiftBucketConfig"),
 });
 export type SwiftBucketConfig = z.infer<typeof swiftBucketConfigSchema>;
 
 export type BucketConfig = S3BucketConfig | SwiftBucketConfig;
 
+export const replicaS3ConfigSchema = z.object({
+  backend: z.string(),
+  config: s3ConfigSchema,
+  typ: z.literal("ReplicaS3Config").default("ReplicaS3Config"),
+});
+export type ReplicaS3Config = z.infer<typeof replicaS3ConfigSchema>;
+
+export const replicaSwiftConfigSchema = z.object({
+  backend: z.string(),
+  config: swiftConfigSchema,
+  typ: z.literal("ReplicaSwiftConfig").default("ReplicaSwiftConfig"),
+});
+export type ReplicaSwiftConfig = z.infer<typeof replicaSwiftConfigSchema>;
+
+export const replicaConfigSchema = z.union([
+  replicaS3ConfigSchema,
+  replicaSwiftConfigSchema,
+]);
+export type ReplicaConfig = z.infer<typeof replicaConfigSchema>;
+export function isBucketConfig(config: unknown): config is BucketConfig {
+  return (config as BucketConfig).typ !== undefined;
+}
+
+export const serviceAccountAccessSchema = z.object({
+  name: z.string(),
+  buckets: z.array(z.string()),
+});
+export type ServiceAccountAccess = z.infer<
+  typeof serviceAccountAccessSchema
+>;
+
 export const globalConfigSchema = z.object({
   port: z.number().int(),
+  service_accounts: z.array(serviceAccountAccessSchema),
   temp_dir: z.string(),
   task_store_backend: s3ConfigSchema,
   backends: z.record(backendSchema),
@@ -81,6 +88,7 @@ export const globalConfigSchema = z.object({
     s3BucketConfigSchema,
     swiftBucketConfigSchema,
   ])),
+  replicas: z.array(replicaConfigSchema),
 });
 
 export type GlobalConfig = z.infer<typeof globalConfigSchema>;
@@ -105,19 +113,3 @@ export const envVarConfigSchema = z.object({
   ),
 });
 export type EnvVarConfig = z.infer<typeof envVarConfigSchema>;
-
-export const kuberentestServiceTokenSchema = z.object({
-  serviceaccount: z.object({
-    name: z.string(),
-    uid: z.string(),
-  }),
-  sub: z.string(),
-});
-export type KuberentestServiceToken = z.infer<
-  typeof kuberentestServiceTokenSchema
->;
-
-export const podsConfigSchema = z.object({
-  pods: z.array(kuberentestServiceTokenSchema),
-});
-export type PodsConfig = z.infer<typeof podsConfigSchema>;
