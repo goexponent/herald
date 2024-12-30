@@ -74,6 +74,7 @@ export function isBucketConfig(config: unknown): config is BucketConfig {
 
 export const serviceAccountAccessSchema = z.object({
   name: z.string(),
+  // FIXME: Accept a regex for the bucket name
   buckets: z.array(z.string()),
 });
 export type ServiceAccountAccess = z.infer<

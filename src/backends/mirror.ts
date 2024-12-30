@@ -1,4 +1,5 @@
 import {
+  BucketConfig,
   ReplicaConfig,
   ReplicaS3Config,
   ReplicaSwiftConfig,
@@ -72,19 +73,13 @@ export async function prepareMirrorRequests(
 
   const replicaBuckets: ReplicaConfig[] = [];
   for (const replica of globalConfig.replicas) {
-    let primaryBucket = "";
-    if (bucketConfig.typ === "S3BucketConfig") {
-      primaryBucket = bucketConfig.config.bucket;
-    } else {
-      primaryBucket = bucketConfig.config.container;
-    }
+    const primaryBucket = bucketConfig.typ === "S3BucketConfig"
+      ? bucketConfig.config.bucket
+      : bucketConfig.config.container;
 
-    let replicaBucket = "";
-    if (replica.typ === "ReplicaS3Config") {
-      replicaBucket = replica.config.bucket;
-    } else {
-      replicaBucket = replica.config.container;
-    }
+    const replicaBucket = replica.typ === "ReplicaS3Config"
+      ? replica.config.bucket
+      : replica.config.container;
 
     if (replicaBucket === primaryBucket) {
       replicaBuckets.push(replica);
@@ -498,4 +493,20 @@ export async function processTask(task: MirrorTask) {
       await mirrorDeleteBucket(originalRequest, backupBucketConfig);
       break;
   }
+}
+
+// FIXME: optimize replica checking
+export function hasReplica(bucketConfig: BucketConfig) {
+  const bucket = bucketConfig.typ === "S3BucketConfig"
+    ? bucketConfig.config.bucket
+    : bucketConfig.config.container;
+  for (const replica of globalConfig.replicas) {
+    const replicaBucket = replica.typ === "ReplicaS3Config"
+      ? replica.config.bucket
+      : replica.config.container;
+    if (replicaBucket === bucket) {
+      return true;
+    }
+  }
+  return false;
 }

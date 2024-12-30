@@ -2,7 +2,7 @@ import { Context } from "@hono/hono";
 import { forwardRequestWithTimeouts } from "../../utils/url.ts";
 import { getLogger, reportToSentry } from "../../utils/log.ts";
 import { S3BucketConfig } from "../../config/mod.ts";
-import { prepareMirrorRequests } from "../mirror.ts";
+import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
 import { isBucketConfig, S3Config } from "../../config/types.ts";
 
 const logger = getLogger(import.meta);
@@ -55,7 +55,7 @@ export async function putObject(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -96,7 +96,7 @@ export async function deleteObject(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -136,7 +136,7 @@ export async function copyObject(
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (bucketConfig.backups) {
+    if (hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
