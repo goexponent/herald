@@ -1,6 +1,8 @@
 import { verify } from "@djwt";
 import { envVarsConfig } from "../config/mod.ts";
 import { getLogger } from "../utils/log.ts";
+import { retryFetchWithExponentialBackoff } from "../utils/url.ts";
+import { HTTPException } from "../types/http-exception.ts";
 
 interface DecodedToken {
   sub: string;
@@ -55,7 +57,14 @@ async function getPublicKey(): Promise<string> {
       `Bearer ${await getServiceAccountToken()}`,
     );
   }
-  const fetchJWK = await fetch(jwkUrl.toString(), { headers });
+  const fetchFunc = async () => await fetch(jwkUrl.toString(), { headers });
+  const fetchJWK = await retryFetchWithExponentialBackoff(fetchFunc, 5, 1000);
+
+  if (fetchJWK instanceof Error) {
+    logger.error(fetchJWK.message);
+    throw new HTTPException(500, { message: fetchJWK.message });
+  }
+
   const data = await fetchJWK.json();
   const key = data.keys[0].kid;
   if (!key) {
@@ -68,7 +77,7 @@ async function getPublicKey(): Promise<string> {
 async function getJWKURI(): Promise<string> {
   const env = envVarsConfig.env;
   if (env === "DEV") {
-    const uri = Deno.env.get("JWKS_URI");
+    const uri = envVarsConfig.jwk_uri;
     if (!uri) {
       logger.error("JWKS_URI not found in environment");
       throw new Error("JWKS_URI not found in environment");
@@ -76,14 +85,26 @@ async function getJWKURI(): Promise<string> {
     return uri;
   }
   const k8s_url = envVarsConfig.k8s_api;
-  const fetchJWKURI = await fetch(
-    `${k8s_url}/.well-known/openid-configuration`,
-    {
-      headers: {
-        Authorization: `Bearer ${await getServiceAccountToken()}`,
+  const fetchFunc = async () =>
+    await fetch(
+      `${k8s_url}/.well-known/openid-configuration`,
+      {
+        headers: {
+          Authorization: `Bearer ${await getServiceAccountToken()}`,
+        },
       },
-    },
+    );
+  const fetchJWKURI = await retryFetchWithExponentialBackoff(
+    fetchFunc,
+    5,
+    1000,
   );
+
+  if (fetchJWKURI instanceof Error) {
+    logger.error(fetchJWKURI.message);
+    throw new HTTPException(500, { message: fetchJWKURI.message });
+  }
+
   const data = await fetchJWKURI.json();
   const jwks_uri = data.jwks_uri;
 
@@ -98,14 +119,14 @@ async function getJWKURI(): Promise<string> {
 async function getServiceAccountToken(): Promise<string> {
   const env = envVarsConfig.env;
   if (env === "DEV") {
-    const podName = Deno.env.get("POD_NAME");
+    const podName = envVarsConfig.pod_name;
     if (!podName) {
       logger.error("POD_NAME not found in environment");
       throw new Error(
         "POD_NAME not found in environment. Set the ENV variable to PROD if running in a Kubernetes cluster",
       );
     }
-    const namespace = Deno.env.get("NAMESPACE");
+    const namespace = envVarsConfig.namespace;
     if (!namespace) {
       logger.error("NAMESPACE not found in environment");
       throw new Error(
