@@ -25,14 +25,11 @@ const logger = getLogger(import.meta);
 const kv = taskStore.queue;
 const lockedStorages = taskStore.lockedStorages;
 
-function taskHandler() {
-  kv.listenQueue(async (task: MirrorTask) => {
-    logger.info(`Processing task: ${task.command}`);
-    await processTask(task);
-  });
+export function getBucketFromTask(task: MirrorTask) {
+  return task.mainBucketConfig.typ === "S3BucketConfig"
+    ? task.mainBucketConfig.config.bucket
+    : task.mainBucketConfig.config.container;
 }
-
-taskHandler();
 
 // update the remote task queue store every 5 minutes
 setInterval(async () => {
