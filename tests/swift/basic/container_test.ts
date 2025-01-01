@@ -8,7 +8,7 @@ import { loggingMiddleware, testConfig } from "../../utils/mod.ts";
 import { proxyUrl } from "../../../src/config/mod.ts";
 import { deleteBucketIfExists } from "../../../utils/s3.ts";
 
-const containerName = "swift-test";
+const containerName = "swift-mirror-test";
 
 const s3 = new S3Client({
   ...testConfig,
@@ -22,6 +22,16 @@ Deno.test(async function createContainer(t) {
   await t.step(async function cleanup() {
     await deleteBucketIfExists(s3, containerName);
   });
+
+  // const res = await createBucketWithoutSDK(
+  //   proxyUrl,
+  //   containerName,
+  //   "local",
+  //   "minio",
+  // );
+
+  // assertEquals([200, 201].includes(res.status), true);
+  // res.body?.cancel();
 
   const command = new CreateBucketCommand({
     Bucket: containerName,

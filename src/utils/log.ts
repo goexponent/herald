@@ -14,7 +14,8 @@ const consoleHandler = new log.ConsoleHandler("NOTSET", {
     const formattedDate = datetime
       ? datetime.toISOString().replace("T", " ").split(".")[0]
       : new Date().toISOString().replace("T", " ").split(".")[0];
-    let finalMessasge = `${formattedDate} ${levelName} [${loggerName}] ${msg}`;
+    let finalMessasge =
+      `${formattedDate} ${levelName} [${loggerName}] -- ${msg}`;
     if (logRecord.level === log.LogLevels.DEBUG) {
       finalMessasge = magenta(finalMessasge);
     }

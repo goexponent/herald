@@ -180,20 +180,6 @@ function generateS3PutObjectHeaders(
   return headers;
 }
 
-export function generateS3CreateBucketHeaders(bucketConfig: S3Config): Headers {
-  const headers = new Headers();
-  headers.set("Host", `${bucketConfig.endpoint}`);
-  headers.set("x-amz-date", new Date().toISOString());
-  headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-  headers.set(
-    "Authorization",
-    `AWS4-HMAC-SHA256 Credential=${bucketConfig.credentials.accessKeyId}/${bucketConfig.region}/s3/aws4_request, SignedHeaders=host;x-amz-date;x-amz-content-sha256, Signature=${
-      generateSignature(bucketConfig)
-    }`,
-  );
-  return headers;
-}
-
 function generateSignature(_bucketConfig: S3Config): string {
   // Implement the AWS Signature Version 4 signing process here
   // This is a placeholder function and should be replaced with actual signature generation logic
@@ -423,10 +409,8 @@ export async function mirrorCreateBucket(
   if (replica.typ === "ReplicaS3Config") {
     const headers = new Headers(originalRequest.headers);
     headers.set(
-      "Authorization",
-      `AWS4-HMAC-SHA256 Credential=${replica.config.credentials.accessKeyId}/${replica.config.region}/s3/aws4_request, SignedHeaders=host;x-amz-date;x-amz-content-sha256, Signature=${
-        generateSignature(replica.config)
-      }`,
+      "content-length",
+      "0",
     );
     const modifiedRequest = new Request(originalRequest.url, {
       method: originalRequest.method,
