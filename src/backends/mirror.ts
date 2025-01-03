@@ -407,14 +407,9 @@ export async function mirrorCreateBucket(
   replica: ReplicaS3Config | ReplicaSwiftConfig,
 ): Promise<void> {
   if (replica.typ === "ReplicaS3Config") {
-    const headers = new Headers(originalRequest.headers);
-    headers.set(
-      "content-length",
-      "0",
-    );
     const modifiedRequest = new Request(originalRequest.url, {
       method: originalRequest.method,
-      headers: headers,
+      headers: originalRequest.headers,
       body: generateCreateBucketXml(replica.config.region),
     });
     await s3_buckets.createBucket(modifiedRequest, replica.config);
