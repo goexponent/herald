@@ -5,7 +5,7 @@ import { getLogger, reportToSentry, setupLoggers } from "./utils/log.ts";
 import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
-import { authenicateRequestAndReturnPodServiceAccount } from "./auth/mod.ts";
+import { verifyServiceAccountToken } from "./auth/mod.ts";
 // import { taskHandler } from "./backends/tasks.ts";
 
 // setup
@@ -65,7 +65,7 @@ app.all("/*", async (c) => {
       message: errMessage,
     });
   }
-  const serviceAccountName = await authenicateRequestAndReturnPodServiceAccount(
+  const serviceAccountName = await verifyServiceAccountToken(
     token,
   );
 

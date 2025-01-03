@@ -80,6 +80,13 @@ const ghjk = file({
       await $.raw`docker-compose build --no-cache proxy`;
       await $.raw`docker-compose up -d --force-recreate`;
     }
+  },
+
+  "dev-env": {
+    desc: "Set up the development environment",
+    async fn($) {
+      await $.raw`kubectl proxy`;
+    }
   }
 
     },

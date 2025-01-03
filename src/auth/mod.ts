@@ -1,8 +1,9 @@
-import { verify } from "@djwt";
+import { decode, verify } from "jwt";
 import { envVarsConfig, globalConfig } from "../config/mod.ts";
 import { getLogger } from "../utils/log.ts";
 import { retryFetchWithExponentialBackoff } from "../utils/url.ts";
 import { HTTPException } from "../types/http-exception.ts";
+import { HTTP_STATUS_CODES } from "../constants/http_status_codes.ts";
 
 interface DecodedToken {
   sub: string;
@@ -14,23 +15,56 @@ interface DecodedToken {
   };
 }
 
+interface JWK {
+  kid: string;
+  use: string;
+  kty: string;
+  alg: string;
+  n: string;
+  e: string;
+}
+
 const logger = getLogger(import.meta);
 
-export async function authenicateRequestAndReturnPodServiceAccount(
+export async function verifyServiceAccountToken(
   token: string,
 ): Promise<string> {
   const payload = await verifyToken(token);
 
-  if (!payload["kubernetes.io"]) {
-    logger.error("Payload does not contain kubernetes.io field");
-    throw new Error("Payload does not contain kubernetes.io field");
+  if (
+    !payload["kubernetes.io"] || !payload["kubernetes.io"].serviceaccount.name
+  ) {
+    const message = "Payload does not contain service account name field";
+    logger.error(message);
+    throw new HTTPException(HTTP_STATUS_CODES.UNAUTHORIZED, {
+      message,
+    });
   }
 
   return payload["kubernetes.io"].serviceaccount.name;
 }
 
+let jwks: JWK[] | undefined;
 async function verifyToken(token: string): Promise<DecodedToken> {
-  const key = await getPublicKey();
+  // TODO: check expired jwks
+  if (!jwks) {
+    jwks = await getKeys();
+  }
+
+  const header = decode(token)[0];
+  const kid = (header as { kid?: string })?.kid;
+  if (!kid) {
+    const message = "Missing kid in token header";
+    logger.error(message);
+    throw new HTTPException(401, { message });
+  }
+  const matchingKey = jwks.find((k) => k.kid === kid);
+  if (!matchingKey) {
+    const message = "Key not found for kid in JWKs";
+    logger.error(message);
+    throw new HTTPException(401, { message });
+  }
+  const key = JSON.stringify(matchingKey);
 
   const cryptoKey = await crypto.subtle.importKey(
     "jwk",
@@ -43,7 +77,7 @@ async function verifyToken(token: string): Promise<DecodedToken> {
   return verified as DecodedToken;
 }
 
-async function getPublicKey(): Promise<string> {
+async function getKeys(): Promise<JWK[]> {
   const jwks_uri = await getJWKURI();
   const jwkUrl = new URL(jwks_uri);
   const headers = new Headers();
@@ -66,24 +100,19 @@ async function getPublicKey(): Promise<string> {
   }
 
   const data = await fetchJWK.json();
-  const key = data.keys[0].kid;
-  if (!key) {
-    throw new Error("Key not found in response");
+  const keys = data.keys;
+  if (!keys) {
+    const message = "Keys not found in the JWK response";
+    logger.error(message);
+    throw new HTTPException(HTTP_STATUS_CODES.SERVICE_UNAVAILABLE, {
+      message,
+    });
   }
 
-  return key;
+  return keys as JWK[];
 }
 
 async function getJWKURI(): Promise<string> {
-  const env = envVarsConfig.env;
-  if (env === "DEV") {
-    const uri = envVarsConfig.jwk_uri;
-    if (!uri) {
-      logger.error("JWKS_URI not found in environment");
-      throw new Error("JWKS_URI not found in environment");
-    }
-    return uri;
-  }
   const k8s_url = envVarsConfig.k8s_api;
   const fetchFunc = async () =>
     await fetch(
@@ -109,55 +138,15 @@ async function getJWKURI(): Promise<string> {
   const jwks_uri = data.jwks_uri;
 
   if (!jwks_uri) {
-    logger.error("JWKS URI not found in response");
-    throw new Error("JWKS URI not found in response");
+    const message = "JWKS URI not found in response";
+    logger.error(message);
+    throw new HTTPException(HTTP_STATUS_CODES.SERVICE_UNAVAILABLE, { message });
   }
 
   return jwks_uri;
 }
 
 async function getServiceAccountToken(): Promise<string> {
-  const env = envVarsConfig.env;
-  if (env === "DEV") {
-    const podName = envVarsConfig.pod_name;
-    if (!podName) {
-      logger.error("POD_NAME not found in environment");
-      throw new Error(
-        "POD_NAME not found in environment. Set the ENV variable to PROD if running in a Kubernetes cluster",
-      );
-    }
-    const namespace = envVarsConfig.namespace;
-    if (!namespace) {
-      logger.error("NAMESPACE not found in environment");
-      throw new Error(
-        "NAMESPACE not found in environment. Set the ENV variable to PROD if running in a Kubernetes cluster",
-      );
-    }
-    const getTokenCommand = new Deno.Command("kubectl", {
-      args: [
-        "exec",
-        "-it",
-        podName,
-        "-n",
-        namespace,
-        "--",
-        "cat",
-        "/var/run/secrets/kubernetes.io/serviceaccount/token",
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    });
-
-    const { stdout, stderr, code } = await getTokenCommand.output();
-
-    if (code !== 0) {
-      logger.error(new TextDecoder().decode(stderr));
-      throw new Error(new TextDecoder().decode(stderr));
-    }
-
-    return new TextDecoder().decode(stdout);
-  }
-
   const token = await Deno.readFile(
     "/var/run/secrets/kubernetes.io/serviceaccount/token",
   );
