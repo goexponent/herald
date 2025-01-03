@@ -45,9 +45,16 @@ export async function verifyServiceAccountToken(
 }
 
 let jwks: JWK[] | undefined;
+const jwkExpiration = 24 * 60 * 60 * 1000; // 24 hours
+let expirationTime = Date.now() + jwkExpiration;
+
+function isJWKExpired(): boolean {
+  return Date.now() > expirationTime;
+}
+
+const cryptoKeys: Map<string, CryptoKey> = new Map();
 async function verifyToken(token: string): Promise<DecodedToken> {
-  // TODO: check expired jwks
-  if (!jwks) {
+  if (!jwks || isJWKExpired()) {
     jwks = await getKeys();
   }
 
@@ -66,13 +73,20 @@ async function verifyToken(token: string): Promise<DecodedToken> {
   }
   const key = JSON.stringify(matchingKey);
 
-  const cryptoKey = await crypto.subtle.importKey(
-    "jwk",
-    JSON.parse(key),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    true,
-    ["verify"],
-  );
+  const cryptoKey = cryptoKeys.has(kid)
+    ? cryptoKeys.get(kid)!
+    : await crypto.subtle.importKey(
+      "jwk",
+      JSON.parse(key),
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      true,
+      ["verify"],
+    );
+
+  if (!cryptoKeys.has(kid)) {
+    cryptoKeys.set(kid, cryptoKey);
+  }
+
   const verified = await verify(token, cryptoKey);
   return verified as DecodedToken;
 }
@@ -108,6 +122,7 @@ async function getKeys(): Promise<JWK[]> {
       message,
     });
   }
+  expirationTime = Date.now() + jwkExpiration;
 
   return keys as JWK[];
 }
