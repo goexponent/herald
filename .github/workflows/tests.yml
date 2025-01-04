@@ -48,9 +48,11 @@ jobs:
         python-version: '3.x'
     - name: Install OpenTofu
       run: |
-        wget https://github.com/opentofu/opentofu/releases/download/v1.6.0/tofu_1.6.0_linux_amd64.zip
-        unzip tofu_1.6.0_linux_amd64.zip
-        sudo mv tofu /usr/local/bin/
+        curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+        chmod +x install-opentofu.sh
+        ./install-opentofu.sh --install-method deb
+        rm -f install-opentofu.sh
+
     - shell: bash
       run: |
         pip install pre-commit
