@@ -86,7 +86,7 @@ const ghjk = file({
     desc: "Install system dependencies",
     async fn($) {
       await $.raw`curl -fsSL https://deno.land/install.sh | sh`;
-      await $.raw`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`;
+      await $.raw`curl -fsSL -o install.sh https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh`;
       await $.raw`brew install pre-commit`;
       await $.raw`pre-commit install`;
       await $.raw`brew install opentofu`;
