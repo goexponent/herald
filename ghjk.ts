@@ -85,13 +85,19 @@ const ghjk = file({
   "install-sys-deps": {
     desc: "Install system dependencies",
     async fn($) {
+      // FIXME: doesn't work on mac
+      // deno
       await $.raw`curl -fsSL https://deno.land/install.sh | sh`;
-      await $.raw`curl -fsSL -o install.sh https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh`;
-      await $.raw`/bin/bash install.sh`;
-      await $.raw`eval "$(/opt/homebrew/bin/brew shellenv)"`;
-      await $.raw`brew install pre-commit`;
+      // pre-commit
+      await $.raw`curl -fsSL https://raw.githubusercontent.com/pre-commit/pre-commit/main/pre-commit.pyz -o pre-commit`;
+      await $.raw`chmod +x pre-commit`;
+      await $.raw`mv pre-commit /usr/local/bin/pre-commit`;
       await $.raw`pre-commit install`;
-      await $.raw`brew install opentofu`;
+      // tofu
+      await $.raw`curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh`;
+      await $.raw`chmod +x install-opentofu.sh`;
+      await $.raw`./install-opentofu.sh --install-method deb`;
+      await $.raw`rm -f install-opentofu.sh`;
     }
   }
 

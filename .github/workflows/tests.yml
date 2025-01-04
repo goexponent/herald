@@ -51,7 +51,7 @@ jobs:
     - shell: bash
       run: |
         ghjk x install-sys-deps
-        pre-commit run --all-files
+        pre-commit run --show-diff-on-failure --color=always --all-files
 
 
   build-docker:
