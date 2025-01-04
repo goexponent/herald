@@ -48,6 +48,12 @@ jobs:
       with:
         python-version: '3.x'
     - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+    - name: Install tofu
+      run: |
+        curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
+        chmod +x install-opentofu.sh
+        ./install-opentofu.sh --install-method deb
+        rm -f install-opentofu.sh
     - shell: bash
       run: |
         ghjk x install-sys-deps
