@@ -30,6 +30,12 @@
         "id": "tasks",
         "config": {
           "tasks": {
+            "install-sys-deps": {
+              "ty": "denoFile@v1",
+              "key": "install-sys-deps",
+              "desc": "Install system dependencies",
+              "envKey": "bciqa3gn6bjbmgjf7mvk7cv6wfjo23wj3vyppgtpqt4ovvxkpzjrcvua"
+            },
             "build-proxy": {
               "ty": "denoFile@v1",
               "key": "build-proxy",
@@ -50,6 +56,7 @@
             }
           },
           "tasksNamed": [
+            "install-sys-deps",
             "build-proxy",
             "dev-proxy",
             "dev-compose"
