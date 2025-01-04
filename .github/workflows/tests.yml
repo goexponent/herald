@@ -31,23 +31,11 @@ jobs:
         id: filter
         with:
           filters: |
-            website:
-              - '.github/workflows/tests.yml'
-              - 'src/metatype.dev/**'
-            typegate: # for the standalone/image (not typegate tests which rely on everything)
-              - '.github/workflows/tests.yml'
-              - 'src/common/**'
-              - 'src/mt_deno/**'
-              - 'src/pyrt_wit_wire/**'
-              - 'src/typegate/**'
-              - 'src/wit/**'
-              - 'Cargo.lock'
             full:
               - '.github/workflows/tests.yml'
               - 'src/**'
               - 'tests/**'
               - 'examples/**'
-              - 'Cargo.lock'
     outputs:
       website: ${{ steps.filter.outputs.website }}
       typegate: ${{ steps.filter.outputs.typegate }}
@@ -57,21 +45,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - if: ${{ env.AWS_ACCESS_KEY_ID != '' }}
-        name: Setup sccache secrets
-        run: echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-      - if: ${{ env.AWS_ACCESS_KEY_ID  != '' }}
-        uses: mozilla-actions/sccache-action@v0.0.6
       - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
       - shell: bash
         run: |
-          sudo apt update && sudo apt install -y --no-install-recommends libclang-dev clang
+          pip install pre-commit
+          pre-commit install
+          pre-commit run --all-files
 
-          ghjk x install-ts
-          ghjk x install-website
-          ghjk x fetch-deno
 
-          # pre-resolve everything to disable resolutions
-          # changing the lockfile which would fail the hooks
-          ghjk p resolve
-          SKIP=ghjk-resolve pre-commit run --show-diff-on-failure --color=always --all-filexx
+  build-docker:
+      needs: changes
+      if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: docker/setup-buildx-action@v3
+        - uses: docker/login-action@v3
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GITHUB_TOKEN }}
+        - name: Build and push Deno app
+          uses: docker/build-push-action@v6
+          with:
+            context: .
+            file: ./Dockerfile
+            platforms: linux/amd64,linux/arm64
+            push: true
+            tags: ghcr.io/${{ github.repository_owner }}/herald:latest
