@@ -37,23 +37,25 @@ jobs:
               - 'tests/**'
               - 'examples/**'
     outputs:
-      website: ${{ steps.filter.outputs.website }}
-      typegate: ${{ steps.filter.outputs.typegate }}
       full: ${{ steps.filter.outputs.full }}
 
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-      - shell: bash
-        run: |
-          pip install pre-commit
-          pre-commit install
-          pre-commit run --all-files
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+    - name: Install OpenTofu
+      run: |
+        wget https://github.com/opentofu/opentofu/releases/download/v1.6.0/tofu_1.6.0_linux_amd64.zip
+        unzip tofu_1.6.0_linux_amd64.zip
+        sudo mv tofu /usr/local/bin/
+    - shell: bash
+      run: |
+        pip install pre-commit
+        pre-commit install
+        pre-commit run --all-files
 
 
   build-docker:
@@ -68,7 +70,7 @@ jobs:
             registry: ghcr.io
             username: ${{ github.actor }}
             password: ${{ secrets.GITHUB_TOKEN }}
-        - name: Build and push Deno app
+        - name: Build and push herald
           uses: docker/build-push-action@v6
           with:
             context: .
