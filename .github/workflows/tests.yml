@@ -46,17 +46,10 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-    - name: Install OpenTofu
-      run: |
-        curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
-        chmod +x install-opentofu.sh
-        ./install-opentofu.sh --install-method deb
-        rm -f install-opentofu.sh
-
+    - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
     - shell: bash
       run: |
-        pip install pre-commit
-        pre-commit install
+        ghjk x install-sys-deps
         pre-commit run --all-files
 
 
