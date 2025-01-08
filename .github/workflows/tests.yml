@@ -40,14 +40,14 @@ jobs:
       full: ${{ steps.filter.outputs.full }}
 
   pre-commit:
-    needs: changes
+    # needs: changes
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with:
         python-version: '3.x'
-    - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+    # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
     - name: Install tofu
       run: |
         curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
@@ -56,7 +56,12 @@ jobs:
         rm -f install-opentofu.sh
     - shell: bash
       run: |
-        ghjk p resolve
+        curl -fsSL https://deno.land/install.sh | sh -s v2.1.4
+        export DENO_INSTALL="$HOME/.deno"
+        export PATH="$DENO_INSTALL/bin:$PATH"
+        # ghjk p resolve
+        python -m pip install --upgrade pip
+        pip install pre-commit
         pre-commit install
         deno --version
         pre-commit run --all-files
