@@ -63,7 +63,6 @@ export function taskHandler() {
     }
     workers.delete(taskBucket);
 
-    worker.postMessage(task);
     const processMessageBackFromWorker = () => {
       return new Promise((resolve, reject) => {
         worker.onmessage = (evt: MessageEvent<string>) => {
