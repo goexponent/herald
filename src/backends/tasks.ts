@@ -56,6 +56,7 @@ export function taskHandler() {
       logger.info(
         `Re-enqueueing task: ${task.command} to process when worker is available`,
       );
+      // FIXME: this will cause for the order of tasks for a bucket to be lost
       setTimeout(() => {
         kv.enqueue(task);
       }, 10000); // Re-enqueue task after 10 seconds
