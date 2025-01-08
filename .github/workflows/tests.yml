@@ -56,15 +56,16 @@ jobs:
         rm -f install-opentofu.sh
     - shell: bash
       run: |
-        ghjk x install-sys-deps
-
         ghjk p resolve
-        SKIP=ghjk-resolve pre-commit run --show-diff-on-failure --color=always --all-files
+        pre-commit install
+        deno --version
+        pre-commit run --all-files
+        # SKIP=ghjk-resolve pre-commit run --show-diff-on-failure --color=always --all-files
 
 
   build-docker:
       needs: changes
-      if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
+  #     if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4

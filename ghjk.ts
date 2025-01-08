@@ -1,4 +1,16 @@
-import { file } from "./tools/deps.ts";
+import { file, ports, stdDeps } from "./tools/deps.ts";
+
+// constants
+const DENO_VERSION = "2.1.4";
+const PYTHON_VERSION = "3.9.19";
+
+// installs
+const installs = {
+  deno: ports.deno_ghrel({
+    version: DENO_VERSION,
+  }),
+  python: ports.cpy_bs({ version: PYTHON_VERSION, releaseTag: "20240814" }),
+}
 
 const ghjk = file({
     tasks: {
@@ -95,5 +107,17 @@ const ghjk = file({
 
     },
   });
+
+// ghjk.install(installs.deno, installs.python, ports.pipi({ packageName: "pre-commit", version: "3.7.1" })[0],);
+
 export const sophon = ghjk.sophon;
 const { env, task } = ghjk;
+
+env("main")
+.install(
+  installs.deno,
+  ports.pipi({ packageName: "pre-commit", version: "3.7.1" })[0],
+).allowedBuildDeps(
+  ...stdDeps(),
+    installs.python,
+)
