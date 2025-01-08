@@ -27,6 +27,7 @@
     "jsr:@std/path@0.221": "0.221.0",
     "jsr:@std/path@0.221.0": "0.221.0",
     "jsr:@std/path@1.0.1": "1.0.1",
+    "jsr:@std/path@1.0.8": "1.0.8",
     "jsr:@std/path@^1.0.8": "1.0.8",
     "jsr:@std/random@0.1.0": "0.1.0",
     "jsr:@std/streams@0.221.0": "0.221.0",
