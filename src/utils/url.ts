@@ -83,7 +83,7 @@ export async function forwardRequestWithTimeouts(
       "x-real-ip",
       "x-request-id",
       "x-scheme",
-      "content-length",
+      // "content-length",
       "content-md5",
     ];
     for (const key of toBeRemovedHeaders) {
