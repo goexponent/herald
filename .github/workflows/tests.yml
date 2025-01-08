@@ -40,7 +40,7 @@ jobs:
       full: ${{ steps.filter.outputs.full }}
 
   pre-commit:
-    # needs: changes
+    needs: changes
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
