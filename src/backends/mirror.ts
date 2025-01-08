@@ -179,11 +179,11 @@ function generateS3GetObjectHeaders(
 //   return headers;
 // }
 
-// function generateSignature(_bucketConfig: S3Config): string {
-//   // Implement the AWS Signature Version 4 signing process here
-//   // This is a placeholder function and should be replaced with actual signature generation logic
-//   return "signature";
-// }
+function generateSignature(_bucketConfig: S3Config): string {
+  // Implement the AWS Signature Version 4 signing process here
+  // This is a placeholder function and should be replaced with actual signature generation logic
+  return "signature";
+}
 
 // function extractContentType(request: Request): string {
 //   const contentType = request.headers.get("Content-Type");
