@@ -5,39 +5,45 @@ import { kv } from "./task_store.ts";
 import { MirrorTask } from "./types.ts";
 
 const logger = getLogger(import.meta);
+const TASK_TIMEOUT = 240000; // 240 seconds
+
+async function createNewWorker(bucket: string) {
+  const worker = new Worker(new URL("./worker.ts", import.meta.url).href, {
+    type: "module",
+    name: `bucket ${bucket} kv worker`,
+  });
+  // Hack to get around the fact that the worker is not yet ready to receive messages
+  const workerCreation = () => {
+    return new Promise((resolve, reject) => {
+      worker.onmessage = (evt: MessageEvent<string>) => {
+        const res = evt.data;
+        logger.info(res);
+        resolve(res);
+      };
+      worker.onmessageerror = (evt) => {
+        reject(evt.data);
+      };
+      worker.onerror = (err) => {
+        reject(err);
+      };
+    });
+  };
+  await workerCreation();
+  return worker;
+}
 
 async function setupWorkers() {
   const buckets = Object.keys(globalConfig.buckets);
   const workers = new Map<string, Worker>();
   for (const bucket of buckets) {
-    const worker = new Worker(new URL("./worker.ts", import.meta.url).href, {
-      type: "module",
-      name: `bucket ${bucket} kv worker`,
-    });
-    // Hack to get around the fact that the worker is not yet ready to receive messages
-    const workerCreation = () => {
-      return new Promise((resolve, reject) => {
-        worker.onmessage = (evt: MessageEvent<string>) => {
-          const res = evt.data;
-          logger.info(res);
-          resolve(res);
-        };
-        worker.onmessageerror = (evt) => {
-          reject(evt.data);
-        };
-        worker.onerror = (err) => {
-          reject(err);
-        };
-      });
-    };
-    await workerCreation();
+    const worker = await createNewWorker(bucket);
     workers.set(bucket, worker);
   }
 
   return workers;
 }
 
-const workers = await setupWorkers();
+let workers: Map<string, Worker>;
 
 export function taskHandler() {
   kv.listenQueue(async (task: MirrorTask) => {
@@ -52,7 +58,7 @@ export function taskHandler() {
       );
       setTimeout(() => {
         kv.enqueue(task);
-      }, 1000);
+      }, 10000); // Re-enqueue task after 10 seconds
       return;
     }
     workers.delete(taskBucket);
@@ -69,15 +75,41 @@ export function taskHandler() {
           resolve(res);
         };
         worker.onmessageerror = (evt) => {
+          workers.set(taskBucket, worker);
+          logger.error(`Task failed: ${evt.data}`);
           reject(evt.data);
         };
         worker.onerror = (err) => {
+          workers.set(taskBucket, worker);
+          logger.error(`Task failed: ${err}`);
           reject(err);
         };
       });
     };
-    await processMessageBackFromWorker();
+
+    try {
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Task timeout")), TASK_TIMEOUT);
+      });
+
+      worker.postMessage(task);
+      const _ = await Promise.race([
+        processMessageBackFromWorker(),
+        timeoutPromise,
+      ]);
+
+      workers.set(taskBucket, worker);
+      logger.info(`Task completed: ${task.command}`);
+    } catch (error) {
+      logger.error(`Task failed: ${(error as Error).message}`);
+      worker.terminate(); // Clean up failed worker
+      // Create new worker for the bucket
+      workers.set(taskBucket, await createNewWorker(taskBucket));
+    }
   });
 }
 
-taskHandler();
+export async function initializeTaskHandler() {
+  workers = await setupWorkers();
+  taskHandler();
+}
