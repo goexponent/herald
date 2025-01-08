@@ -28,7 +28,9 @@ export async function putObject(
       message: "Bucket information missing from the request",
     });
   }
-  logger.debug(`Request: ${Deno.inspect(req)}`);
+
+  // deno-lint-ignore no-console
+  console.log(`Request: ${Deno.inspect(req)}`);
 
   let config: SwiftConfig;
   let mirrorOperation = false;

@@ -62,6 +62,8 @@ export async function putObject(
     config = bucketConfig as S3Config;
   }
 
+  logger.debug(Deno.inspect(req));
+
   const response = await forwardRequestWithTimeouts(
     req,
     config,
@@ -70,6 +72,7 @@ export async function putObject(
   if (response.status != 200) {
     const errMessage = `Put Object Failed: ${response.statusText}`;
     logger.warn(errMessage);
+    logger.warn(await response.text());
     reportToSentry(errMessage);
   } else {
     logger.info(`Put Object Successful: ${response.statusText}`);

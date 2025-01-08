@@ -190,7 +190,7 @@ function extractContentType(request: Request): string {
   const contentType = request.headers.get("Content-Type");
   if (contentType === null) {
     logger.error(`Content-Type header is missing in the request`);
-    logger.debug(`Headers: ${JSON.stringify(request.headers)}`);
+    // logger.debug(`Headers: ${Deno.inspect(request.headers)}`);
     reportToSentry("Content-Type header is missing in the request");
     return "application/octet-stream";
   }
