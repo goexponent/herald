@@ -149,52 +149,11 @@ function generateS3GetObjectHeaders(
   return headers;
 }
 
-// function generateS3PutObjectHeaders(
-//   bucketConfig: S3Config,
-//   contentType: string | undefined,
-//   contentLength: string | null,
-//   originalHeaders: Headers,
-// ): Headers {
-//   const headers = new Headers(originalHeaders);
-//   headers.set("Host", `${bucketConfig.endpoint}`);
-//   headers.set("x-amz-date", new Date().toISOString());
-//   // headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-//   if (contentType) {
-//     // headers.set("Content-Type", contentType);
-//   }
-
-//   // headers.set("Transfer-Encoding", "chunked");
-//   // headers.set("Content-Type", "application/octet-stream");
-//   if (contentLength) {
-//     // headers.set("Content-Length", contentLength);
-//   }
-//   headers.set(
-//     "Authorization",
-//     `AWS4-HMAC-SHA256 Credential=${bucketConfig.credentials.accessKeyId}/${bucketConfig.region}/s3/aws4_request, SignedHeaders=host;x-amz-date;x-amz-content-sha256, Signature=${
-//       generateSignature(bucketConfig)
-//     }`,
-//   );
-//   headers.set("accept-encoding", "gzip, br");
-//   headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-//   return headers;
-// }
-
 function generateSignature(_bucketConfig: S3Config): string {
   // Implement the AWS Signature Version 4 signing process here
   // This is a placeholder function and should be replaced with actual signature generation logic
   return "signature";
 }
-
-// function extractContentType(request: Request): string {
-//   const contentType = request.headers.get("Content-Type");
-//   if (contentType === null) {
-//     logger.error(`Content-Type header is missing in the request`);
-//     // logger.debug(`Headers: ${Deno.inspect(request.headers)}`);
-//     reportToSentry("Content-Type header is missing in the request");
-//     return "application/octet-stream";
-//   }
-//   return contentType;
-// }
 
 export async function mirrorPutObject(
   primary: S3BucketConfig | SwiftBucketConfig,

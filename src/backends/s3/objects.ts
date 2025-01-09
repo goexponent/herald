@@ -62,8 +62,6 @@ export async function putObject(
     config = bucketConfig as S3Config;
   }
 
-  // logger.debug(Deno.inspect(req));
-
   const response = await forwardRequestWithTimeouts(
     req,
     config,
