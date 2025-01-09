@@ -83,7 +83,7 @@ export async function forwardRequestWithTimeouts(
       "x-real-ip",
       "x-request-id",
       "x-scheme",
-      "content-length",
+      // "content-length",
       "content-md5",
     ];
     for (const key of toBeRemovedHeaders) {
@@ -103,8 +103,6 @@ export async function forwardRequestWithTimeouts(
       headers: signed.headers,
       body: signed.body ?? undefined,
     });
-
-    // logger.debug(`Request: ${Deno.inspect(newRequest)}`);
 
     // Need to add the url, or content-length gets set to -1
     const response = await fetch(redirect, newRequest);
