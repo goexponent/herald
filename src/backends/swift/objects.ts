@@ -29,9 +29,6 @@ export async function putObject(
     });
   }
 
-  // deno-lint-ignore no-console
-  console.log(`Request: ${Deno.inspect(req)}`);
-
   let config: SwiftConfig;
   let mirrorOperation = false;
   if (isBucketConfig(bucketConfig)) {

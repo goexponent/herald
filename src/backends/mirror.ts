@@ -269,9 +269,6 @@ export async function mirrorPutObject(
     return;
   }
 
-  // deno-lint-ignore no-console
-  console.log("Object", response);
-
   // this path means primary is swift
   if (replica.typ === "ReplicaS3Config") {
     // put object to s3

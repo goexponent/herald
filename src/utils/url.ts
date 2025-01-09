@@ -104,11 +104,7 @@ export async function forwardRequestWithTimeouts(
       body: signed.body ?? undefined,
     });
 
-    // logger.debug(`Request: ${Deno.inspect(newRequest)}`);
-
     // Need to add the url, or content-length gets set to -1
-    // deno-lint-ignore no-console
-    console.log("Request: ", newRequest);
     const response = await fetch(redirect, newRequest);
     const clonedResponse = new Response(response.body, response);
     return clonedResponse;
