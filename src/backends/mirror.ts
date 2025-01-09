@@ -236,18 +236,24 @@ export async function mirrorPutObject(
       headers: originalRequest.headers,
       method: "PUT",
     });
-    putToS3Request.headers.set(
-      "accept-ranges",
-      response.headers.get("accept-ranges")!,
-    );
-    putToS3Request.headers.set(
-      "content-length",
-      response.headers.get("content-length")!,
-    );
-    putToS3Request.headers.set(
-      "content-type",
-      response.headers.get("content-type")!,
-    );
+    if (response.headers.has("accept-ranges")) {
+      putToS3Request.headers.set(
+        "accept-ranges",
+        response.headers.get("accept-ranges")!,
+      );
+    }
+    if (response.headers.has("content-length")) {
+      putToS3Request.headers.set(
+        "content-length",
+        response.headers.get("content-length")!,
+      );
+    }
+    if (response.headers.has("content-type")) {
+      putToS3Request.headers.set(
+        "content-type",
+        response.headers.get("content-type")!,
+      );
+    }
     await s3.putObject(putToS3Request, replica.config);
   } else {
     const putToSwiftRequest = new Request(originalRequest.url, {
