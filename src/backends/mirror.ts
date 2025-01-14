@@ -25,14 +25,11 @@ const logger = getLogger(import.meta);
 const kv = taskStore.queue;
 const lockedStorages = taskStore.lockedStorages;
 
-function taskHandler() {
-  kv.listenQueue(async (task: MirrorTask) => {
-    logger.info(`Processing task: ${task.command}`);
-    await processTask(task);
-  });
+export function getBucketFromTask(task: MirrorTask) {
+  return task.mainBucketConfig.typ === "S3BucketConfig"
+    ? task.mainBucketConfig.config.bucket
+    : task.mainBucketConfig.config.container;
 }
-
-taskHandler();
 
 // update the remote task queue store every 5 minutes
 setInterval(async () => {
@@ -152,66 +149,10 @@ function generateS3GetObjectHeaders(
   return headers;
 }
 
-function generateS3PutObjectHeaders(
-  bucketConfig: S3Config,
-  contentType: string | undefined,
-  contentLength: string | null,
-  originalHeaders: Headers,
-): Headers {
-  const headers = new Headers(originalHeaders);
-  headers.set("Host", `${bucketConfig.endpoint}`);
-  headers.set("x-amz-date", new Date().toISOString());
-  // headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-  if (contentType) {
-    // headers.set("Content-Type", contentType);
-  }
-
-  // headers.set("Transfer-Encoding", "chunked");
-  // headers.set("Content-Type", "application/octet-stream");
-  if (contentLength) {
-    // headers.set("Content-Length", contentLength);
-  }
-  headers.set(
-    "Authorization",
-    `AWS4-HMAC-SHA256 Credential=${bucketConfig.credentials.accessKeyId}/${bucketConfig.region}/s3/aws4_request, SignedHeaders=host;x-amz-date;x-amz-content-sha256, Signature=${
-      generateSignature(bucketConfig)
-    }`,
-  );
-  headers.set("expect", "100-continue");
-  headers.set("accept-encoding", "gzip, br");
-  headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-  return headers;
-}
-
-export function generateS3CreateBucketHeaders(bucketConfig: S3Config): Headers {
-  const headers = new Headers();
-  headers.set("Host", `${bucketConfig.endpoint}`);
-  headers.set("x-amz-date", new Date().toISOString());
-  headers.set("x-amz-content-sha256", "UNSIGNED-PAYLOAD");
-  headers.set(
-    "Authorization",
-    `AWS4-HMAC-SHA256 Credential=${bucketConfig.credentials.accessKeyId}/${bucketConfig.region}/s3/aws4_request, SignedHeaders=host;x-amz-date;x-amz-content-sha256, Signature=${
-      generateSignature(bucketConfig)
-    }`,
-  );
-  return headers;
-}
-
 function generateSignature(_bucketConfig: S3Config): string {
   // Implement the AWS Signature Version 4 signing process here
   // This is a placeholder function and should be replaced with actual signature generation logic
   return "signature";
-}
-
-function extractContentType(request: Request): string {
-  const contentType = request.headers.get("Content-Type");
-  if (contentType === null) {
-    logger.error(`Content-Type header is missing in the request`);
-    logger.debug(`Headers: ${JSON.stringify(request.headers)}`);
-    reportToSentry("Content-Type header is missing in the request");
-    return "application/octet-stream";
-  }
-  return contentType;
 }
 
 export async function mirrorPutObject(
@@ -244,12 +185,7 @@ export async function mirrorPutObject(
       const putToS3Request = new Request(originalRequest.url, {
         method: originalRequest.method,
         body: response.body,
-        headers: generateS3PutObjectHeaders(
-          replica.config,
-          extractContentType(originalRequest),
-          response.headers.get("Content-Length"),
-          originalRequest.headers,
-        ),
+        headers: originalRequest.headers,
       });
       await s3.putObject(putToS3Request, replica.config);
     } else {
@@ -258,21 +194,7 @@ export async function mirrorPutObject(
         body: response.body,
         method: originalRequest.method,
         redirect: originalRequest.redirect,
-        headers: generateS3PutObjectHeaders(
-          {
-            endpoint: primary.config.endpoint,
-            region: replica.config.region,
-            bucket: replica.config.container,
-            credentials: {
-              accessKeyId: replica.config.credentials.username,
-              secretAccessKey: replica.config.credentials.password,
-            },
-            forcePathStyle: primary.config.forcePathStyle,
-          },
-          extractContentType(originalRequest),
-          response.headers.get("Content-Length"),
-          originalRequest.headers,
-        ),
+        headers: originalRequest.headers,
       });
       await swift.putObject(putToSwiftRequest, replica.config);
     }
@@ -311,43 +233,33 @@ export async function mirrorPutObject(
     // put object to s3
     const putToS3Request = new Request(originalRequest.url, {
       body: response.body,
-      headers: generateS3PutObjectHeaders(
-        {
-          endpoint: replica.config.endpoint,
-          region: replica.config.region,
-          bucket: replica.config.bucket,
-          credentials: {
-            accessKeyId: replica.config.credentials.accessKeyId,
-            secretAccessKey: replica.config.credentials.secretAccessKey,
-          },
-          forcePathStyle: replica.config.forcePathStyle,
-        },
-        extractContentType(originalRequest),
-        response.headers.get("Content-Length"),
-        originalRequest.headers,
-      ),
+      headers: originalRequest.headers,
       method: "PUT",
     });
+    if (response.headers.has("accept-ranges")) {
+      putToS3Request.headers.set(
+        "accept-ranges",
+        response.headers.get("accept-ranges")!,
+      );
+    }
+    if (response.headers.has("content-length")) {
+      putToS3Request.headers.set(
+        "content-length",
+        response.headers.get("content-length")!,
+      );
+    }
+    if (response.headers.has("content-type")) {
+      putToS3Request.headers.set(
+        "content-type",
+        response.headers.get("content-type")!,
+      );
+    }
     await s3.putObject(putToS3Request, replica.config);
   } else {
     const putToSwiftRequest = new Request(originalRequest.url, {
       body: response.body,
       method: "PUT",
-      headers: generateS3PutObjectHeaders(
-        {
-          endpoint: primary.config.auth_url,
-          region: primary.config.region,
-          bucket: primary.config.container,
-          credentials: {
-            accessKeyId: primary.config.credentials.username,
-            secretAccessKey: primary.config.credentials.password,
-          },
-          forcePathStyle: true, // FIXME
-        },
-        extractContentType(originalRequest),
-        response.headers.get("Content-Length"),
-        originalRequest.headers,
-      ),
+      headers: originalRequest.headers,
     });
     await swift.putObject(putToSwiftRequest, replica.config);
   }
@@ -424,16 +336,9 @@ export async function mirrorCreateBucket(
   replica: ReplicaS3Config | ReplicaSwiftConfig,
 ): Promise<void> {
   if (replica.typ === "ReplicaS3Config") {
-    const headers = new Headers(originalRequest.headers);
-    headers.set(
-      "Authorization",
-      `AWS4-HMAC-SHA256 Credential=${replica.config.credentials.accessKeyId}/${replica.config.region}/s3/aws4_request, SignedHeaders=host;x-amz-date;x-amz-content-sha256, Signature=${
-        generateSignature(replica.config)
-      }`,
-    );
     const modifiedRequest = new Request(originalRequest.url, {
       method: originalRequest.method,
-      headers: headers,
+      headers: originalRequest.headers,
       body: generateCreateBucketXml(replica.config.region),
     });
     await s3_buckets.createBucket(modifiedRequest, replica.config);

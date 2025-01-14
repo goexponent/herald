@@ -81,7 +81,6 @@ export async function putObject(
       );
     }
   }
-  logger.debug(`Put Object Response: ${Deno.inspect(await response.text())}`);
 
   return response;
 }
