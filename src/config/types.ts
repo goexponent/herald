@@ -107,7 +107,7 @@ export const envVarConfigSchema = z.object({
     .enum(["NOTSET", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"])
     .optional(),
   env: z.enum(["DEV", "PROD"]).default("DEV"),
-  k8s_api: z.string().default("http://kubernetes.default:443"),
+  k8s_api: z.string().default("https://kubernetes.default.svc"),
   config_file_path: z.string().default("herald.yaml"),
   service_account_token_path: z.string().default(
     "/var/run/secrets/kubernetes.io/serviceaccount/token",
