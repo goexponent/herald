@@ -156,14 +156,21 @@ async function getKeys(): Promise<KubeJWK[]> {
 async function getJWKURI(currentToken: string): Promise<string> {
   logger.info("Fetching JWKS URI from k8s API...");
   const k8s_url = envVarsConfig.k8s_api;
+  const certPath = envVarsConfig.cert_path;
   const headers = envVarsConfig.env === "DEV"
     ? {}
     : { Authorization: `Bearer ${currentToken}` };
+
+  const caCert = await Deno.readTextFile(certPath);
+  const client = Deno.createHttpClient({
+    caCerts: [caCert], // Path to your certificate file
+  });
   const fetchFunc = async () =>
     await fetch(
       `${k8s_url}/.well-known/openid-configuration`,
       {
         headers,
+        client,
       },
     );
   const fetchJWKURI = await retryFetchWithTimeout(

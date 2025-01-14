@@ -113,6 +113,11 @@ const ghjk = file({
       Deno.env.set("SERVICE_ACCOUNT_TOKEN_PATH", tokenPath);
       await Deno.mkdir("serviceaccount", { recursive: true });
       await Deno.writeTextFile(tokenPath, token.stdout);
+
+      const cert = await $.raw`kubectl exec datacycle-backend-generic-6bc46984cb-8x74j -n stg-datacycle -- cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt`.stdout("piped").stderr("piped");
+      const certPath = "serviceaccount/ca.crt";
+      Deno.env.set("CERT_PATH", certPath);
+      await Deno.writeTextFile(certPath, cert.stdout);
     }
   }
 
