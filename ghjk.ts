@@ -103,6 +103,17 @@ const ghjk = file({
       await $.raw`pip install pre-commit`;
       await $.raw`pre-commit install`;
     }
+  },
+
+  "setup-auth": {
+    desc: "Setup auth",
+    async fn($) {
+      const token = await $.raw`kubectl exec datacycle-backend-generic-6bc46984cb-8x74j -n stg-datacycle -- cat /var/run/secrets/kubernetes.io/serviceaccount/token`.stdout("piped").stderr("piped");
+      const tokenPath = "serviceaccount/token";
+      Deno.env.set("SERVICE_ACCOUNT_TOKEN_PATH", tokenPath);
+      await Deno.mkdir("serviceaccount", { recursive: true });
+      await Deno.writeTextFile(tokenPath, token.stdout);
+    }
   }
 
     },

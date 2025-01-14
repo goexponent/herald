@@ -39,9 +39,11 @@ const logger = getLogger(import.meta);
 export async function verifyServiceAccountToken(
   token: string,
 ): Promise<string> {
-  const payload = await verifyToken(token);
+  logger.info("Verifying service account token...");
+  const extractedToken = token.split(" ")[1];
+  const payload = await verifyToken(extractedToken);
 
-  const name = payload["kubernetes.io"]?.serviceaccount?.name;
+  const name = payload.sub;
   if (
     !name
   ) {
@@ -61,8 +63,9 @@ let expirationTime = Date.now() + jwkExpiration;
 const cryptoKeys: Map<string, CryptoKey> = new Map();
 
 async function updateKeyCache() {
+  logger.info("Updating KubeJWK Cache...");
   const jwks = await getKeys();
-  jwks.forEach(async (key) => {
+  for (const key of jwks) {
     const cryptoKey = await crypto.subtle.importKey(
       "jwk",
       key,
@@ -71,10 +74,11 @@ async function updateKeyCache() {
       ["verify"],
     );
     cryptoKeys.set(key.kid, cryptoKey);
-  });
+  }
 }
 
 async function verifyToken(token: string): Promise<DecodedToken> {
+  logger.info("Verifying token...");
   if (cryptoKeys.size === 0 || Date.now() > expirationTime) {
     await updateKeyCache();
   }
@@ -105,17 +109,22 @@ async function verifyToken(token: string): Promise<DecodedToken> {
 }
 
 async function getKeys(): Promise<KubeJWK[]> {
-  const jwks_uri = await getJWKURI();
+  logger.info("Fetching JWK Keys from k8s API...");
+  const currentToken = await getServiceAccountToken();
+  const jwks_uri = await getJWKURI(currentToken);
   const jwkUrl = new URL(jwks_uri);
   const headers = new Headers();
   if (envVarsConfig.env === "DEV") {
     // This should be the proxy server created by kubectl for dev purposes inside a local machine
-    jwkUrl.hostname = envVarsConfig.k8s_api;
+    const k8sUrl = new URL(envVarsConfig.k8s_api);
+    jwkUrl.hostname = k8sUrl.hostname;
+    jwkUrl.port = k8sUrl.port;
+    jwkUrl.protocol = k8sUrl.protocol;
   } else {
     // we need to set the auth headers with the serviceToken when herald is running in a k8s cluster
     headers.set(
       "Authorization",
-      `Bearer ${await getServiceAccountToken()}`,
+      `Bearer ${currentToken}`,
     );
   }
   const fetchFunc = async () => await fetch(jwkUrl.toString(), { headers });
@@ -144,15 +153,17 @@ async function getKeys(): Promise<KubeJWK[]> {
   return keys as KubeJWK[];
 }
 
-async function getJWKURI(): Promise<string> {
+async function getJWKURI(currentToken: string): Promise<string> {
+  logger.info("Fetching JWKS URI from k8s API...");
   const k8s_url = envVarsConfig.k8s_api;
+  const headers = envVarsConfig.env === "DEV"
+    ? {}
+    : { Authorization: `Bearer ${currentToken}` };
   const fetchFunc = async () =>
     await fetch(
       `${k8s_url}/.well-known/openid-configuration`,
       {
-        headers: {
-          Authorization: `Bearer ${await getServiceAccountToken()}`,
-        },
+        headers,
       },
     );
   const fetchJWKURI = await retryFetchWithTimeout(
@@ -164,6 +175,11 @@ async function getJWKURI(): Promise<string> {
   if (fetchJWKURI instanceof Error) {
     logger.error(fetchJWKURI.message);
     throw new HTTPException(500, { message: fetchJWKURI.message });
+  }
+
+  if (fetchJWKURI.status !== 200) {
+    logger.error(`Failed to fetch JWKS URI: ${fetchJWKURI.statusText}`);
+    throw new HTTPException(500, { message: fetchJWKURI.statusText });
   }
 
   const data = await fetchJWKURI.json();
@@ -179,8 +195,9 @@ async function getJWKURI(): Promise<string> {
 }
 
 async function getServiceAccountToken(): Promise<string> {
+  logger.info("Fetching current app service account token...");
   const token = await Deno.readFile(
-    "/var/run/secrets/kubernetes.io/serviceaccount/token",
+    envVarsConfig.service_account_token_path,
   );
   return new TextDecoder().decode(token);
 }
@@ -189,6 +206,7 @@ export function hasBucketAccess(
   serviceAccount: string,
   bucket: string,
 ): boolean {
+  logger.info("Checking if service account has access to bucket...");
   const sa = globalConfig.service_accounts.find((sa) =>
     sa.name === serviceAccount
   );
