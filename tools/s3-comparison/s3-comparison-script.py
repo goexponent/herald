@@ -64,28 +64,10 @@ class S3BucketComparator:
         bucket1_contents = self.list_contents()
         bucket2_contents = other_bucket.list_contents()
 
-        # Compare object metadata using s5cmd stat
         differences = {
-            "only_in_bucket1": [],
-            "only_in_bucket2": [],
-            "size_mismatch": [],
+            "only_in_bucket1": list(bucket1_contents - bucket2_contents),
+            "only_in_bucket2": list(bucket2_contents - bucket1_contents),
         }
-
-        only_in_bucket1 = bucket1_contents - bucket2_contents
-        only_in_bucket2 = bucket2_contents - bucket1_contents
-        common_objects = bucket1_contents & bucket2_contents
-
-        # Check sizes for common objects
-        for obj in common_objects:
-            size1 = self._get_object_size(obj)
-            size2 = other_bucket._get_object_size(obj)
-            if size1 != size2:
-                differences["size_mismatch"].append(
-                    {"key": obj, "size1": size1, "size2": size2}
-                )
-
-        differences["only_in_bucket1"] = list(only_in_bucket1)
-        differences["only_in_bucket2"] = list(only_in_bucket2)
         return differences
 
     def save_differences_to_json(self, data: Dict, filename: str) -> None:
