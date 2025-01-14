@@ -177,6 +177,12 @@ async function getJWKURI(currentToken: string): Promise<string> {
     throw new HTTPException(500, { message: fetchJWKURI.message });
   }
 
+  // deno-lint-ignore no-console
+  console.log(`${k8s_url}/.well-known/openid-configuration`);
+  // deno-lint-ignore no-console
+  console.log("*************", fetchJWKURI);
+  // deno-lint-ignore no-console
+  console.log("*************", await fetchJWKURI.json());
   if (fetchJWKURI.status !== 200) {
     logger.error(`Failed to fetch JWKS URI: ${fetchJWKURI.statusText}`);
     throw new HTTPException(500, { message: fetchJWKURI.statusText });
