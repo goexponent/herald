@@ -1,8 +1,10 @@
-import json
-import subprocess
-import yaml
-import logging
 import sys
+import json
+import yaml
+import shlex
+import logging
+import subprocess
+from typing import Set, List, Optional, Dict
 
 
 class S3BucketComparator:
@@ -12,7 +14,7 @@ class S3BucketComparator:
         self.profile = profile
         self.endpoint_url = endpoint_url
 
-    def run_command(self, command):
+    def run_command(self, command: List[str], timeout: int = 300) -> Optional[str]:
         try:
             full_command = ["s5cmd"]
             if self.credentials_file:
@@ -21,17 +23,29 @@ class S3BucketComparator:
                 full_command.extend(["--profile", self.profile])
             if self.endpoint_url:
                 full_command.extend(["--endpoint-url", self.endpoint_url])
-            full_command.extend(command.split())
-            logging.info(f"Executing command: {' '.join(full_command)}")
+
+            full_command.extend(shlex.split(command))
+            # Log command without sensitive details
+            logging.info(f"Executing s5cmd command for bucket: {self.bucket_name}")
+
             result = subprocess.run(
-                full_command, check=True, text=True, capture_output=True
+                full_command,
+                check=True,
+                text=True,
+                capture_output=True,
+                timeout=timeout,
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
             logging.error(f"Error executing s5cmd: {e.stderr}")
             return None
+        except subprocess.TimeoutExpired:
+            logging.error(f"Command timed out after {timeout} seconds")
+            return None
 
-    def list_contents(self):
+    def list_contents(self) -> Set[str]:
+        """List all objects in the bucket with progress tracking."""
+
         logging.info(f"Listing contents of bucket {self.bucket_name}")
         command = f"ls --show-fullpath s3://{self.bucket_name}/*"
         output = self.run_command(command)
@@ -43,25 +57,47 @@ class S3BucketComparator:
             return set(object_keys)
         return set()
 
-    def compare_buckets(self, other_bucket):
+    def compare_buckets(self, other_bucket: "S3BucketComparator") -> Dict:
+        """Compare contents and metadata of two buckets."""
+
         logging.info("Comparing bucket contents")
         bucket1_contents = self.list_contents()
         bucket2_contents = other_bucket.list_contents()
 
-        only_in_bucket1 = bucket1_contents - bucket2_contents
-        only_in_bucket2 = bucket2_contents - bucket1_contents
-
-        logging.info(
-            f"Differences found: {len(only_in_bucket1)} only in bucket1, {len(only_in_bucket2)} only in bucket2"
-        )
-        return {
-            "only_in_bucket1": list(only_in_bucket1),
-            "only_in_bucket2": list(only_in_bucket2),
+        # Compare object metadata using s5cmd stat
+        differences = {
+            "only_in_bucket1": [],
+            "only_in_bucket2": [],
+            "size_mismatch": [],
         }
 
-    def save_differences_to_json(self, data, filename):
+        only_in_bucket1 = bucket1_contents - bucket2_contents
+        only_in_bucket2 = bucket2_contents - bucket1_contents
+        common_objects = bucket1_contents & bucket2_contents
+
+        # Check sizes for common objects
+        for obj in common_objects:
+            size1 = self._get_object_size(obj)
+            size2 = other_bucket._get_object_size(obj)
+            if size1 != size2:
+                differences["size_mismatch"].append(
+                    {"key": obj, "size1": size1, "size2": size2}
+                )
+
+        differences["only_in_bucket1"] = list(only_in_bucket1)
+        differences["only_in_bucket2"] = list(only_in_bucket2)
+        return differences
+
+    def save_differences_to_json(self, data: Dict, filename: str) -> None:
+        """Save comparison results to a JSON file with size validation."""
+
         logging.info(f"Saving differences to {filename}")
         try:
+            # Validate file size before writing
+            estimated_size = len(json.dumps(data, indent=4))
+            if estimated_size > 100 * 1024 * 1024:  # 100MB
+                logging.warning("Large difference file detected")
+
             with open(filename, "w") as json_file:
                 json.dump(data, json_file, indent=4)
             logging.info(f"Differences saved to {filename}")
@@ -73,7 +109,10 @@ def main():
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
-        stream=sys.stdout,
+        handlers=[
+            logging.FileHandler("bucket_size.log"),
+            logging.StreamHandler(sys.stdout),
+        ],
     )
     logging.info("Starting the script")
     try:
