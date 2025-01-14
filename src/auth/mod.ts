@@ -184,12 +184,6 @@ async function getJWKURI(currentToken: string): Promise<string> {
     throw new HTTPException(500, { message: fetchJWKURI.message });
   }
 
-  // deno-lint-ignore no-console
-  console.log(`${k8s_url}/.well-known/openid-configuration`);
-  // deno-lint-ignore no-console
-  console.log("*************", fetchJWKURI);
-  // deno-lint-ignore no-console
-  console.log("*************", await fetchJWKURI.json());
   if (fetchJWKURI.status !== 200) {
     logger.error(`Failed to fetch JWKS URI: ${fetchJWKURI.statusText}`);
     throw new HTTPException(500, { message: fetchJWKURI.statusText });
@@ -209,10 +203,10 @@ async function getJWKURI(currentToken: string): Promise<string> {
 
 async function getServiceAccountToken(): Promise<string> {
   logger.info("Fetching current app service account token...");
-  const token = await Deno.readFile(
+  const token = await Deno.readTextFile(
     envVarsConfig.service_account_token_path,
   );
-  return new TextDecoder().decode(token);
+  return token;
 }
 
 export function hasBucketAccess(

@@ -70,7 +70,7 @@ jobs:
 
   build-docker:
       needs: changes
-      # if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
+      if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
@@ -82,7 +82,13 @@ jobs:
             password: ${{ secrets.GITHUB_TOKEN }}
         - name: Sanitize Docker tag
           id: vars
-          run: echo "TAG=$(echo ${{ github.head_ref }} | tr '/' '-')" >> $GITHUB_ENV
+          run: |
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              REF="${{ github.head_ref }}"
+            else
+              REF="latest"
+            fi
+            echo "TAG=$(echo "$REF" | tr '/' '-')" >> $GITHUB_ENV
         - name: Build and push herald
           uses: docker/build-push-action@v6
           with:
