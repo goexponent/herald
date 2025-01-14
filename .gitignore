@@ -79,3 +79,4 @@ crash.log
 tests/**/.terraform.lock.hcl
 examples/**/.terraform.lock.hcl
 venv/
+bucket_differences.json
