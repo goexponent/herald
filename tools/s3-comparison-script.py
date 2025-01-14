@@ -1,128 +1,129 @@
-import boto3
+import json
+import subprocess
+import yaml
 import logging
-from botocore.exceptions import (
-    NoCredentialsError,
-    PartialCredentialsError,
-    EndpointConnectionError,
-)
-from tqdm import tqdm  # Import tqdm for the progress bar
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("bucket_size.log"),  # Log to a file
-        logging.StreamHandler(),  # Log to console
-    ],
-)
+import sys
 
 
-def get_bucket_size(
-    bucket_name, access_key, secret_key, endpoint_url=None, region_name=None
-):
-    # Initialize the S3 client
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        endpoint_url=endpoint_url,
-        region_name=region_name,
-    )
+class S3BucketComparator:
+    def __init__(self, bucket_name, credentials_file, profile, endpoint_url):
+        self.bucket_name = bucket_name
+        self.credentials_file = credentials_file
+        self.profile = profile
+        self.endpoint_url = endpoint_url
 
-    total_size = 0
-    total_objects = 0
-    paginator = s3.get_paginator("list_objects_v2")
+    def run_command(self, command):
+        try:
+            full_command = ["s5cmd"]
+            if self.credentials_file:
+                full_command.extend(["--credentials-file", self.credentials_file])
+            if self.profile:
+                full_command.extend(["--profile", self.profile])
+            if self.endpoint_url:
+                full_command.extend(["--endpoint-url", self.endpoint_url])
+            full_command.extend(command.split())
+            logging.info(f"Executing command: {' '.join(full_command)}")
+            result = subprocess.run(
+                full_command, check=True, text=True, capture_output=True
+            )
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Error executing s5cmd: {e.stderr}")
+            return None
 
-    try:
-        logging.info(f"Starting to calculate size for bucket: {bucket_name}")
-        # First, count the total number of objects in the bucket
-        logging.info("Counting total objects in the bucket...")
-        total_object_count = 0
-        for page in paginator.paginate(Bucket=bucket_name):
-            if "Contents" in page:
-                total_object_count += len(page["Contents"])
-        logging.info(f"Total objects in bucket {bucket_name}: {total_object_count}")
+    def list_contents(self):
+        logging.info(f"Listing contents of bucket {self.bucket_name}")
+        command = f"ls --show-fullpath s3://{self.bucket_name}/*"
+        output = self.run_command(command)
+        if output:
+            object_keys = [line for line in output.splitlines()]
+            logging.info(
+                f"Found {len(object_keys)} objects in bucket {self.bucket_name}"
+            )
+            return set(object_keys)
+        return set()
 
-        # Initialize the progress bar
-        with tqdm(
-            total=total_object_count, desc=f"Processing {bucket_name}", unit="obj"
-        ) as pbar:
-            for page in paginator.paginate(Bucket=bucket_name):
-                if "Contents" in page:
-                    for obj in page["Contents"]:
-                        total_size += obj["Size"]
-                        total_objects += 1
-                        pbar.update(1)  # Update the progress bar
+    def compare_buckets(self, other_bucket):
+        logging.info("Comparing bucket contents")
+        bucket1_contents = self.list_contents()
+        bucket2_contents = other_bucket.list_contents()
 
-        logging.info(f"Finished processing bucket {bucket_name}.")
-        return total_size
-    except (NoCredentialsError, PartialCredentialsError):
-        logging.error(f"Error: Invalid credentials for bucket {bucket_name}.")
-        return None
-    except EndpointConnectionError:
-        logging.error(
-            f"Error: Could not connect to the endpoint for bucket {bucket_name}."
+        only_in_bucket1 = bucket1_contents - bucket2_contents
+        only_in_bucket2 = bucket2_contents - bucket1_contents
+
+        logging.info(
+            f"Differences found: {len(only_in_bucket1)} only in bucket1, {len(only_in_bucket2)} only in bucket2"
         )
-        return None
-    except Exception as e:
-        logging.error(f"Error retrieving size for bucket {bucket_name}: {e}")
-        return None
+        return {
+            "only_in_bucket1": list(only_in_bucket1),
+            "only_in_bucket2": list(only_in_bucket2),
+        }
 
-
-def get_bucket_info(bucket_number):
-    print(f"\nEnter details for Bucket {bucket_number}:")
-    bucket_name = input("Bucket Name: ")
-    access_key = input("Access Key: ")
-    secret_key = input("Secret Key: ")
-    endpoint_url = input("Endpoint URL (leave blank for AWS S3): ") or None
-    region_name = input("Region (leave blank if not applicable): ") or None
-    return bucket_name, access_key, secret_key, endpoint_url, region_name
+    def save_differences_to_json(self, data, filename):
+        logging.info(f"Saving differences to {filename}")
+        try:
+            with open(filename, "w") as json_file:
+                json.dump(data, json_file, indent=4)
+            logging.info(f"Differences saved to {filename}")
+        except IOError as e:
+            logging.error(f"Error saving to JSON file: {e}")
 
 
 def main():
-    # Get bucket configurations from the user
-    (
-        bucket1_name,
-        bucket1_access_key,
-        bucket1_secret_key,
-        bucket1_endpoint,
-        bucket1_region,
-    ) = get_bucket_info(1)
-    (
-        bucket2_name,
-        bucket2_access_key,
-        bucket2_secret_key,
-        bucket2_endpoint,
-        bucket2_region,
-    ) = get_bucket_info(2)
-
-    # Get the sizes of both buckets
-    size1 = get_bucket_size(
-        bucket1_name,
-        bucket1_access_key,
-        bucket1_secret_key,
-        bucket1_endpoint,
-        bucket1_region,
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        stream=sys.stdout,
     )
-    size2 = get_bucket_size(
-        bucket2_name,
-        bucket2_access_key,
-        bucket2_secret_key,
-        bucket2_endpoint,
-        bucket2_region,
+    logging.info("Starting the script")
+    try:
+        with open("conf.yaml", "r") as f:
+            config = yaml.safe_load(f)
+    except FileNotFoundError:
+        logging.error("Configuration file 'conf.yaml' not found.")
+        return
+    except yaml.YAMLError as e:
+        logging.error(f"Error parsing YAML file: {e}")
+        return
+
+    bucket1_config = config.get("bucket1")
+    if not bucket1_config:
+        logging.error("Bucket1 configuration not found in 'conf.yaml'.")
+        return
+
+    required_keys = ["bucket_name", "credentials_file", "profile", "endpoint_url"]
+    for key in required_keys:
+        if key not in bucket1_config:
+            logging.error(f"Missing '{key}' in bucket1 configuration.")
+            return
+
+    bucket2_config = config.get("bucket2")
+    if not bucket2_config:
+        logging.error("Bucket2 configuration not found in 'conf.yaml'.")
+        return
+
+    for key in required_keys:
+        if key not in bucket2_config:
+            logging.error(f"Missing '{key}' in bucket2 configuration.")
+            return
+
+    bucket1 = S3BucketComparator(
+        bucket_name=bucket1_config["bucket_name"],
+        credentials_file=bucket1_config["credentials_file"],
+        profile=bucket1_config["profile"],
+        endpoint_url=bucket1_config["endpoint_url"],
     )
 
-    if size1 is not None and size2 is not None:
-        print(f"\nBucket 1 Size: {size1 / (1024 ** 2):.2f} MB")
-        print(f"Bucket 2 Size: {size2 / (1024 ** 2):.2f} MB")
+    bucket2 = S3BucketComparator(
+        bucket_name=bucket2_config["bucket_name"],
+        credentials_file=bucket2_config["credentials_file"],
+        profile=bucket2_config["profile"],
+        endpoint_url=bucket2_config["endpoint_url"],
+    )
 
-        if size1 > size2:
-            print("Bucket 1 has more data.")
-        elif size1 < size2:
-            print("Bucket 2 has more data.")
-        else:
-            print("Both buckets have the same amount of data.")
+    differences = bucket2.compare_buckets(bucket1)
+    bucket1.save_differences_to_json(differences, "bucket_differences.json")
+    logging.info("Script execution completed")
 
 
 if __name__ == "__main__":

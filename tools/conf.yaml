@@ -1,0 +1,11 @@
+bucket1:
+  bucket_name: "<bucket_name>"
+  credentials_file: "./credentials"
+  profile: "bucket1"
+  endpoint_url: "<endpoint_url>"
+
+bucket2:
+  bucket_name: "<bucket_name>"
+  credentials_file: "./credentials"
+  profile: "bucket2"
+  endpoint_url: "<endpoint_url>"
