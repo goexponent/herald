@@ -70,7 +70,7 @@ jobs:
 
   build-docker:
       needs: changes
-      if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
+      # if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) }}
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
