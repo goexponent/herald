@@ -82,7 +82,7 @@ jobs:
             password: ${{ secrets.GITHUB_TOKEN }}
         - name: Sanitize Docker tag
           id: vars
-          run: echo "TAG=$(echo ${{ github.ref_name }} | tr '/' '-')" >> $GITHUB_ENV
+          run: echo "TAG=$(echo ${{ github.head_ref }} | tr '/' '-')" >> $GITHUB_ENV
         - name: Build and push herald
           uses: docker/build-push-action@v6
           with:
