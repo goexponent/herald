@@ -217,11 +217,12 @@ export function deserializeToRequest(data: Record<string, any>): Request {
   });
 }
 
-export async function retryFetchWithExponentialBackoff<T>(
+export async function retryFetchWithTimeout<T>(
   fn: () => Promise<T>,
   retries = 5,
   initialDelay = 100,
   maxDelay = 1000,
+  timeout = 5000,
 ): Promise<T | Error> {
   let attempt = 0;
   let delayDuration = initialDelay;
@@ -229,7 +230,13 @@ export async function retryFetchWithExponentialBackoff<T>(
 
   while (attempt < retries) {
     try {
-      return await fn();
+      const result = await Promise.race<[Promise<T>, Promise<Error>]>([
+        fn(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), timeout)
+        ),
+      ]);
+      return result;
     } catch (error) {
       if (attempt >= retries - 1) {
         logger.critical(error);

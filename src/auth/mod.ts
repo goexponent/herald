@@ -1,7 +1,7 @@
-import { decode, verify } from "jwt";
+import { decode, verify } from "djwt";
 import { envVarsConfig, globalConfig } from "../config/mod.ts";
 import { getLogger } from "../utils/log.ts";
-import { retryFetchWithExponentialBackoff } from "../utils/url.ts";
+import { retryFetchWithTimeout } from "../utils/url.ts";
 import { HTTPException } from "../types/http-exception.ts";
 import { HTTP_STATUS_CODES } from "../constants/http_status_codes.ts";
 
@@ -15,7 +15,17 @@ interface DecodedToken {
   };
 }
 
-interface JWK {
+/**
+ * Interface representing a JSON Web Key (JWK) structure for "kube" JWT.
+ *
+ * @property {string} kid - Key ID
+ * @property {string} use - Public Key Use
+ * @property {string} kty - Key Type
+ * @property {string} alg - Algorithm
+ * @property {string} n - Modulus
+ * @property {string} e - Exponent
+ */
+interface KubeJWK {
   kid: string;
   use: string;
   kty: string;
@@ -31,8 +41,9 @@ export async function verifyServiceAccountToken(
 ): Promise<string> {
   const payload = await verifyToken(token);
 
+  const name = payload["kubernetes.io"]?.serviceaccount?.name;
   if (
-    !payload["kubernetes.io"] || !payload["kubernetes.io"].serviceaccount.name
+    !name
   ) {
     const message = "Payload does not contain service account name field";
     logger.error(message);
@@ -41,57 +52,59 @@ export async function verifyServiceAccountToken(
     });
   }
 
-  return payload["kubernetes.io"].serviceaccount.name;
+  return name;
 }
 
-let jwks: JWK[] | undefined;
 const jwkExpiration = 24 * 60 * 60 * 1000; // 24 hours
 let expirationTime = Date.now() + jwkExpiration;
 
-function isJWKExpired(): boolean {
-  return Date.now() > expirationTime;
+const cryptoKeys: Map<string, CryptoKey> = new Map();
+
+async function updateKeyCache() {
+  const jwks = await getKeys();
+  jwks.forEach(async (key) => {
+    const cryptoKey = await crypto.subtle.importKey(
+      "jwk",
+      key,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      true,
+      ["verify"],
+    );
+    cryptoKeys.set(key.kid, cryptoKey);
+  });
 }
 
-const cryptoKeys: Map<string, CryptoKey> = new Map();
 async function verifyToken(token: string): Promise<DecodedToken> {
-  if (!jwks || isJWKExpired()) {
-    jwks = await getKeys();
+  if (cryptoKeys.size === 0 || Date.now() > expirationTime) {
+    await updateKeyCache();
   }
-
-  const header = decode(token)[0];
-  const kid = (header as { kid?: string })?.kid;
+  let header: { kid?: string };
+  try {
+    header = decode(token)[0] as { kid?: string };
+  } catch (e) {
+    const message = `Error decoding token: ${(e as Error).message}`;
+    logger.error(message);
+    throw new HTTPException(401, { message });
+  }
+  const kid = header.kid;
   if (!kid) {
     const message = "Missing kid in token header";
     logger.error(message);
     throw new HTTPException(401, { message });
   }
-  const matchingKey = jwks.find((k) => k.kid === kid);
-  if (!matchingKey) {
-    const message = "Key not found for kid in JWKs";
+
+  const cryptoKey = cryptoKeys.get(kid);
+  if (!cryptoKey) {
+    const message = `Key with kid ${kid} not found`;
     logger.error(message);
     throw new HTTPException(401, { message });
-  }
-  const key = JSON.stringify(matchingKey);
-
-  const cryptoKey = cryptoKeys.has(kid)
-    ? cryptoKeys.get(kid)!
-    : await crypto.subtle.importKey(
-      "jwk",
-      JSON.parse(key),
-      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-      true,
-      ["verify"],
-    );
-
-  if (!cryptoKeys.has(kid)) {
-    cryptoKeys.set(kid, cryptoKey);
   }
 
   const verified = await verify(token, cryptoKey);
   return verified as DecodedToken;
 }
 
-async function getKeys(): Promise<JWK[]> {
+async function getKeys(): Promise<KubeJWK[]> {
   const jwks_uri = await getJWKURI();
   const jwkUrl = new URL(jwks_uri);
   const headers = new Headers();
@@ -106,7 +119,11 @@ async function getKeys(): Promise<JWK[]> {
     );
   }
   const fetchFunc = async () => await fetch(jwkUrl.toString(), { headers });
-  const fetchJWK = await retryFetchWithExponentialBackoff(fetchFunc, 5, 1000);
+  const fetchJWK = await retryFetchWithTimeout(
+    fetchFunc,
+    5,
+    1000,
+  );
 
   if (fetchJWK instanceof Error) {
     logger.error(fetchJWK.message);
@@ -124,7 +141,7 @@ async function getKeys(): Promise<JWK[]> {
   }
   expirationTime = Date.now() + jwkExpiration;
 
-  return keys as JWK[];
+  return keys as KubeJWK[];
 }
 
 async function getJWKURI(): Promise<string> {
@@ -138,7 +155,7 @@ async function getJWKURI(): Promise<string> {
         },
       },
     );
-  const fetchJWKURI = await retryFetchWithExponentialBackoff(
+  const fetchJWKURI = await retryFetchWithTimeout(
     fetchFunc,
     5,
     1000,
