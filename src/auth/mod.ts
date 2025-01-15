@@ -111,7 +111,12 @@ async function verifyToken(token: string): Promise<DecodedToken> {
 async function getKeys(): Promise<KubeJWK[]> {
   logger.info("Fetching JWK Keys from k8s API...");
   const currentToken = await getServiceAccountToken();
-  const jwks_uri = await getJWKURI(currentToken);
+  const certPath = envVarsConfig.cert_path;
+  const caCert = await Deno.readTextFile(certPath);
+  const client = Deno.createHttpClient({
+    caCerts: [caCert], // Path to your certificate file
+  });
+  const jwks_uri = await getJWKURI(currentToken, client);
   const jwkUrl = new URL(jwks_uri);
   const headers = new Headers();
   if (envVarsConfig.env === "DEV") {
@@ -127,7 +132,9 @@ async function getKeys(): Promise<KubeJWK[]> {
       `Bearer ${currentToken}`,
     );
   }
-  const fetchFunc = async () => await fetch(jwkUrl.toString(), { headers });
+
+  const fetchFunc = async () =>
+    await fetch(jwkUrl.toString(), { headers, client });
   const fetchJWK = await retryFetchWithTimeout(
     fetchFunc,
     5,
@@ -153,18 +160,16 @@ async function getKeys(): Promise<KubeJWK[]> {
   return keys as KubeJWK[];
 }
 
-async function getJWKURI(currentToken: string): Promise<string> {
+async function getJWKURI(
+  currentToken: string,
+  client: Deno.HttpClient,
+): Promise<string> {
   logger.info("Fetching JWKS URI from k8s API...");
   const k8s_url = envVarsConfig.k8s_api;
-  const certPath = envVarsConfig.cert_path;
   const headers = envVarsConfig.env === "DEV"
     ? {}
     : { Authorization: `Bearer ${currentToken}` };
 
-  const caCert = await Deno.readTextFile(certPath);
-  const client = Deno.createHttpClient({
-    caCerts: [caCert], // Path to your certificate file
-  });
   const fetchFunc = async () =>
     await fetch(
       `${k8s_url}/.well-known/openid-configuration`,
