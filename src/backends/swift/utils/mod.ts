@@ -57,6 +57,7 @@ export async function toS3XmlContent(
   delimiter?: string,
   prefix?: string,
   maxKeys = 1000,
+  continuationToken?: string,
 ): Promise<Response> {
   const swiftBody = await swiftResponse.json();
 
@@ -81,6 +82,12 @@ export async function toS3XmlContent(
       Contents: contents,
       CommonPrefixes: commonPrefixes.map((prefix) => ({ Prefix: prefix })),
       KeyCount: commonPrefixes.length + contents.length,
+      ContinuationToken: continuationToken,
+      NextContinuationToken: contents.length !== 0
+        ? contents[contents.length - 1].Key
+        : (commonPrefixes.length !== 0
+          ? commonPrefixes[commonPrefixes.length - 1]
+          : undefined),
     },
   };
 
