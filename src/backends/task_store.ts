@@ -3,7 +3,7 @@ import {
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
-} from "aws-sdk/client-s3";
+} from "aws-sdk/client-s3-esm";
 import { getLogger, reportToSentry } from "../utils/log.ts";
 import { MirrorTask } from "./types.ts";
 import { loadConfig } from "../config/loader.ts";
