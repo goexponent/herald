@@ -14,6 +14,7 @@ export const s3ConfigSchema = z.object({
     accessKeyId: z.string(),
     secretAccessKey: z.string(),
   }),
+  typ: z.literal("S3Config").default("S3Config"),
 });
 export type S3Config = z.infer<typeof s3ConfigSchema>;
 
@@ -28,6 +29,7 @@ export const swiftConfigSchema = z.object({
     user_domain_name: z.string(),
     project_domain_name: z.string(),
   }),
+  typ: z.literal("SwiftConfig").default("SwiftConfig"),
 });
 export type SwiftConfig = z.infer<typeof swiftConfigSchema>;
 
@@ -68,8 +70,15 @@ export const replicaConfigSchema = z.union([
   replicaSwiftConfigSchema,
 ]);
 export type ReplicaConfig = z.infer<typeof replicaConfigSchema>;
-export function isBucketConfig(config: unknown): config is BucketConfig {
-  return (config as BucketConfig).typ !== undefined;
+// deno-lint-ignore no-explicit-any
+export function isBucketConfig(config: any): config is BucketConfig {
+  return config.typ === "S3BucketConfig" || config.typ === "SwiftBucketConfig";
+}
+
+// deno-lint-ignore no-explicit-any
+export function isReplicaConfig(config: any): config is ReplicaConfig {
+  return config.typ === "ReplicaS3Config" ||
+    config.typ === "ReplicaSwiftConfig";
 }
 
 export const serviceAccountAccessSchema = z.object({
@@ -116,3 +125,19 @@ export const envVarConfigSchema = z.object({
   ),
 });
 export type EnvVarConfig = z.infer<typeof envVarConfigSchema>;
+
+export function convertReplicaToPrimary(replica: ReplicaConfig): BucketConfig {
+  if (replica.typ === "ReplicaS3Config") {
+    return {
+      backend: replica.backend,
+      config: replica.config,
+      typ: "S3BucketConfig",
+    };
+  } else {
+    return {
+      backend: replica.backend,
+      config: replica.config,
+      typ: "SwiftBucketConfig",
+    };
+  }
+}

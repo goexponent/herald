@@ -1,23 +1,26 @@
-import { Context } from "@hono/hono";
 import { formatParams, forwardRequestWithTimeouts } from "../../utils/url.ts";
 import { getLogger, reportToSentry } from "../../utils/log.ts";
 import { S3BucketConfig, S3Config } from "../../config/mod.ts";
-import { isBucketConfig } from "../../config/types.ts";
+import {
+  isBucketConfig,
+  isReplicaConfig,
+  ReplicaS3Config,
+} from "../../config/types.ts";
 import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
 
 const logger = getLogger(import.meta);
 
 export async function createBucket(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig,
+  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
 ) {
   logger.info("[S3 backend] Proxying Create Bucket Request...");
 
   let config: S3Config;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -49,15 +52,15 @@ export async function createBucket(
 
 export async function deleteBucket(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig,
+  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
 ) {
   logger.info("[S3 backend] Proxying Delete Bucket Request...");
 
   let config: S3Config;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -88,15 +91,15 @@ export async function deleteBucket(
 }
 
 export async function routeQueryParamedRequest(
-  c: Context,
-  bucketConfig: S3BucketConfig,
+  req: Request,
+  bucketConfig: S3BucketConfig | ReplicaS3Config,
   queryParams: string[],
 ) {
   const formattedParams = formatParams(queryParams);
   logger.info(`[S3 backend] Proxying Get Bucket ${formattedParams} Request...`);
 
   const response = await forwardRequestWithTimeouts(
-    c.req.raw,
+    req,
     bucketConfig.config,
   );
 
@@ -115,13 +118,13 @@ export async function routeQueryParamedRequest(
 }
 
 export async function headBucket(
-  c: Context,
-  bucketConfig: S3BucketConfig,
+  req: Request,
+  bucketConfig: S3BucketConfig | ReplicaS3Config,
 ): Promise<Response> {
   logger.info(`[S3 backend] Proxying Head Bucket Request...`);
 
   const response = await forwardRequestWithTimeouts(
-    c.req.raw,
+    req,
     bucketConfig.config,
   );
 

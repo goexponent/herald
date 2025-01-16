@@ -78,3 +78,5 @@ crash.log
 *tshscript.sh
 tests/**/.terraform.lock.hcl
 examples/**/.terraform.lock.hcl
+*.crt
+token
