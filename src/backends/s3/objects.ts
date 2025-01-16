@@ -3,11 +3,19 @@ import { forwardRequestWithTimeouts } from "../../utils/url.ts";
 import { getLogger, reportToSentry } from "../../utils/log.ts";
 import { S3BucketConfig } from "../../config/mod.ts";
 import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
-import { isBucketConfig, S3Config } from "../../config/types.ts";
+import {
+  isBucketConfig,
+  isReplicaConfig,
+  ReplicaS3Config,
+  S3Config,
+} from "../../config/types.ts";
 
 const logger = getLogger(import.meta);
 
-export async function getObject(req: Request, _bucketConfig: S3BucketConfig) {
+export async function getObject(
+  req: Request,
+  _bucketConfig: S3BucketConfig | ReplicaS3Config,
+) {
   logger.info("[S3 backend] Proxying Get Object Request...");
 
   const response = await forwardRequestWithTimeouts(
@@ -26,11 +34,14 @@ export async function getObject(req: Request, _bucketConfig: S3BucketConfig) {
   return response;
 }
 
-export async function listObjects(c: Context, bucketConfig: S3BucketConfig) {
+export async function listObjects(
+  req: Request,
+  bucketConfig: S3BucketConfig | ReplicaS3Config,
+) {
   logger.info("[S3 backend] Proxying List Objects Request...");
 
   const response = await forwardRequestWithTimeouts(
-    c.req.raw,
+    req,
     bucketConfig.config,
   );
 
@@ -47,15 +58,15 @@ export async function listObjects(c: Context, bucketConfig: S3BucketConfig) {
 
 export async function putObject(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig,
+  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
 ) {
   logger.info("[S3 backend] Proxying Put Object Request...");
 
   let config: S3Config;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -87,15 +98,15 @@ export async function putObject(
 
 export async function deleteObject(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig,
+  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
 ) {
   logger.info("[S3 backend] Proxying Delete Object Request...");
 
   let config: S3Config;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -127,15 +138,15 @@ export async function deleteObject(
 
 export async function copyObject(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig,
+  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
 ) {
   logger.info("[S3 backend] Proxying Copy Object Request...");
 
   let config: S3Config;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -171,7 +182,7 @@ export function getObjectMeta(c: Context) {
 
 export async function headObject(
   req: Request,
-  bucketConfig: S3BucketConfig,
+  bucketConfig: S3BucketConfig | ReplicaS3Config,
 ) {
   logger.info("[S3 backend] Proxying Head Object Request...");
 

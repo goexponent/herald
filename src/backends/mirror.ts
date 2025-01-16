@@ -214,6 +214,7 @@ export async function mirrorPutObject(
           secretAccessKey: primary.config.credentials.password,
         },
         forcePathStyle: true, // FIXME
+        typ: "S3Config",
       },
     ),
   });

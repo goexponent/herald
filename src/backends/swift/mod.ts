@@ -1,5 +1,4 @@
-import { Context } from "@hono/hono";
-import { SwiftBucketConfig } from "../../config/types.ts";
+import { ReplicaSwiftConfig, SwiftBucketConfig } from "../../config/types.ts";
 import {
   copyObject,
   deleteObject,
@@ -46,11 +45,11 @@ const handlers = {
 
 const logger = getLogger(import.meta);
 export async function swiftResolver(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
+  req: Request,
+  bucketConfig: SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response | undefined> {
-  const { method, objectKey } = s3Utils.extractRequestInfo(c.req.raw);
-  const url = new URL(c.req.url);
+  const { method, objectKey } = s3Utils.extractRequestInfo(req);
+  const url = new URL(req.url);
   const queryParam = url.searchParams.keys().next().value;
 
   logger.debug(`Resolving Swift Handler for Request...`);
@@ -58,31 +57,31 @@ export async function swiftResolver(
   if (queryParam) {
     switch (queryParam) {
       case "policy":
-        return await getBucketPolicy(c, bucketConfig);
+        return await getBucketPolicy(req, bucketConfig);
       case "acl":
-        return await getBucketAcl(c, bucketConfig);
+        return await getBucketAcl(req, bucketConfig);
       case "versioning":
-        return await getBucketVersioning(c, bucketConfig);
+        return await getBucketVersioning(req, bucketConfig);
       case "accelerate":
-        return getBucketAccelerate(c, bucketConfig);
+        return getBucketAccelerate(req, bucketConfig);
       case "logging":
-        return getBucketLogging(c, bucketConfig);
+        return getBucketLogging(req, bucketConfig);
       case "lifecycle":
-        return getBucketLifecycle(c, bucketConfig);
+        return getBucketLifecycle(req, bucketConfig);
       case "website":
-        return getBucketWebsite(c, bucketConfig);
+        return getBucketWebsite(req, bucketConfig);
       case "requestPayment":
-        return getBucketPayment(c, bucketConfig);
+        return getBucketPayment(req, bucketConfig);
       case "encryption":
-        return await getBucketEncryption(c, bucketConfig);
+        return await getBucketEncryption(req, bucketConfig);
       case "cors":
-        return getBucketCors(c, bucketConfig);
+        return getBucketCors(req, bucketConfig);
       case "replication":
-        return getBucketReplication(c, bucketConfig);
+        return getBucketReplication(req, bucketConfig);
       case "object-lock":
-        return getBucketObjectLock(c, bucketConfig);
+        return getBucketObjectLock(req, bucketConfig);
       case "tagging":
-        return await getBucketTagging(c, bucketConfig);
+        return await getBucketTagging(req, bucketConfig);
       // ignore these as they will be handled as regular request below
       case "x-id":
       case "list-type":
@@ -99,32 +98,32 @@ export async function swiftResolver(
   switch (method) {
     case "GET":
       if (objectKey) {
-        return await handlers.getObject(c.req.raw, bucketConfig);
+        return await handlers.getObject(req, bucketConfig);
       }
 
-      return await handlers.listObjects(c.req.raw, bucketConfig);
+      return await handlers.listObjects(req, bucketConfig);
     case "POST":
       break;
     case "PUT":
-      if (objectKey && c.req.header("x-amz-copy-source") !== undefined) {
-        return await handlers.copyObject(c.req.raw, bucketConfig);
+      if (objectKey && req.headers.get("x-amz-copy-source") !== undefined) {
+        return await handlers.copyObject(req, bucketConfig);
       } else if (objectKey) {
-        return await handlers.putObject(c.req.raw, bucketConfig);
+        return await handlers.putObject(req, bucketConfig);
       }
 
-      return await handlers.createBucket(c.req.raw, bucketConfig);
+      return await handlers.createBucket(req, bucketConfig);
     case "DELETE":
       if (objectKey) {
-        return await handlers.deleteObject(c.req.raw, bucketConfig);
+        return await handlers.deleteObject(req, bucketConfig);
       }
 
-      return await handlers.deleteBucket(c.req.raw, bucketConfig);
+      return await handlers.deleteBucket(req, bucketConfig);
     case "HEAD":
       if (objectKey) {
-        return await handlers.headObject(c.req.raw, bucketConfig);
+        return await handlers.headObject(req, bucketConfig);
       }
 
-      return await handlers.headBucket(c, bucketConfig);
+      return await handlers.headBucket(req, bucketConfig);
     default:
       logger.critical(`Unsupported Request: ${method}`);
       throw new HTTPException(400, { message: "Unsupported Request" });
