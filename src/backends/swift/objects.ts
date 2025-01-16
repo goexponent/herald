@@ -3,12 +3,16 @@ import { HTTPException } from "../../types/http-exception.ts";
 import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
 import {
   getBodyFromReq,
+  getReplicas,
   retryWithExponentialBackoff,
+  retryWithExponentialBackoffReplica,
 } from "../../utils/url.ts";
 import { formatRFC3339Date, toS3XmlContent } from "./utils/mod.ts";
 import { NoSuchBucketException } from "../../constants/errors.ts";
 import {
   isBucketConfig,
+  isReplicaConfig,
+  ReplicaSwiftConfig,
   SwiftBucketConfig,
   SwiftConfig,
 } from "../../config/types.ts";
@@ -19,7 +23,7 @@ const logger = getLogger(import.meta);
 
 export async function putObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Put Object Request...");
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
@@ -31,9 +35,9 @@ export async function putObject(
 
   let config: SwiftConfig;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -54,7 +58,11 @@ export async function putObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    (_) => {},
+    fetchFunc,
+    config,
+  );
 
   if (response.status !== 201) {
     const errMessage = `Put Object Failed: ${response.statusText}`;
@@ -76,7 +84,7 @@ export async function putObject(
 
 export async function getObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Get Object Request...");
 
@@ -89,9 +97,9 @@ export async function getObject(
 
   let config: SwiftConfig;
   // let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       // mirrorOperation = true;
     }
   } else {
@@ -112,7 +120,28 @@ export async function getObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const isReplica = isReplicaConfig(bucketConfig);
+  const replicas = getReplicas(config.container);
+  const response = !isReplica && replicas.length > 0
+    ? await retryWithExponentialBackoffReplica(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      req,
+      replicas,
+    )
+    : await retryWithExponentialBackoff(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      isReplica,
+    );
 
   if (response.status !== 200) {
     const errMessage = `Get Object Failed: ${response.statusText}`;
@@ -127,7 +156,7 @@ export async function getObject(
 
 export async function deleteObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Delete Object Request...");
 
@@ -140,9 +169,9 @@ export async function deleteObject(
 
   let config: SwiftConfig;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -163,7 +192,11 @@ export async function deleteObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    (_) => {},
+    fetchFunc,
+    config,
+  );
 
   if (response.status !== 204) {
     const errMessage = `Delete Object Failed: ${response.statusText}`;
@@ -185,7 +218,7 @@ export async function deleteObject(
 
 export async function listObjects(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Get List of Objects Request...");
 
@@ -197,7 +230,7 @@ export async function listObjects(
   }
 
   let config: SwiftConfig;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
   } else {
     config = bucketConfig as SwiftConfig;
@@ -229,7 +262,28 @@ export async function listObjects(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const isReplica = isReplicaConfig(bucketConfig);
+  const replicas = getReplicas(config.container);
+  const response = !isReplica && replicas.length > 0
+    ? await retryWithExponentialBackoffReplica(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      req,
+      replicas,
+    )
+    : await retryWithExponentialBackoff(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      isReplica,
+    );
 
   if (response.status === 404) {
     logger.warn(`Get List of Objects Failed: ${response.statusText}`);
@@ -253,7 +307,7 @@ export async function listObjects(
 
 export async function getObjectMeta(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response | undefined> {
   logger.info("[Swift backend] Proxying Get Object Meta Request...");
 
@@ -265,7 +319,7 @@ export async function getObjectMeta(
   }
 
   let config: SwiftConfig;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
   } else {
     config = bucketConfig as SwiftConfig;
@@ -285,7 +339,28 @@ export async function getObjectMeta(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const isReplica = isReplicaConfig(bucketConfig);
+  const replicas = getReplicas(config.container);
+  const response = !isReplica && replicas.length > 0
+    ? await retryWithExponentialBackoffReplica(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      req,
+      replicas,
+    )
+    : await retryWithExponentialBackoff(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      isReplica,
+    );
 
   if (response.status !== 201) {
     const errMessage = `Get Object Meta Failed: ${response.statusText}`;
@@ -300,7 +375,7 @@ export async function getObjectMeta(
 
 export async function headObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Head Object Request...");
 
@@ -312,7 +387,7 @@ export async function headObject(
   }
 
   let config: SwiftConfig;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
   } else {
     config = bucketConfig as SwiftConfig;
@@ -329,7 +404,28 @@ export async function headObject(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const isReplica = isReplicaConfig(bucketConfig);
+  const replicas = getReplicas(config.container);
+  const response = !isReplica && replicas.length > 0
+    ? await retryWithExponentialBackoffReplica(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      req,
+      replicas,
+    )
+    : await retryWithExponentialBackoff(
+      fetchFunc,
+      () => {},
+      config,
+      isReplica ? 0 : 3,
+      100,
+      10000,
+      isReplica,
+    );
 
   if (response.status >= 300) {
     logger.warn(`Head object Failed: ${response.statusText}`);
@@ -350,7 +446,7 @@ export async function headObject(
 // currently supports copy within the same project
 export async function copyObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
+  bucketConfig: SwiftConfig | SwiftBucketConfig | ReplicaSwiftConfig,
 ): Promise<Response> {
   logger.info("[Swift backend] Proxying Copy Object Request...");
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
@@ -362,9 +458,9 @@ export async function copyObject(
 
   let config: SwiftConfig;
   let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
+  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
     config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
+    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
       mirrorOperation = true;
     }
   } else {
@@ -387,7 +483,11 @@ export async function copyObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    (_) => {},
+    fetchFunc,
+    config,
+  );
 
   if (response.status !== 201) {
     const errMessage = `Copy Object Failed: ${response.statusText}`;

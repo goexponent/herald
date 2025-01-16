@@ -7,7 +7,7 @@ import { s3ReqParams } from "../constants/query-params.ts";
 import { createXmlErrorResponse } from "./error.ts";
 import { ReplicaConfig, SwiftConfig } from "../config/types.ts";
 import { s3Resolver } from "../backends/s3/mod.ts";
-// import { swiftResolver } from "../backends/swift/mod.ts";
+import { swiftResolver } from "../backends/swift/mod.ts";
 
 const logger = getLogger(import.meta);
 
@@ -237,15 +237,16 @@ export async function retryWithExponentialBackoffReplica<T>(
       return await swiftFn()!;
     } catch (error) {
       while (replicas.length > 0) {
-        const replica = replicas.pop();
+        const replica = replicas.pop()!;
         try {
-          if (replica?.typ === "ReplicaS3Config") {
+          if (replica.typ === "ReplicaS3Config") {
             return await s3Resolver(request, replica) as T;
           } else {
-            // return await swiftResolver(request, replica) as T;
+            return await swiftResolver(request, replica) as T;
           }
         } catch (_err) {
-          //
+          // continue to the next replica available
+          continue;
         }
       }
 
