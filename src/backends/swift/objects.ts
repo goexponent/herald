@@ -212,8 +212,8 @@ export async function listObjects(
   const params = new URLSearchParams();
   if (query.prefix) params.append("prefix", query.prefix[0]);
   if (query.delimiter) params.append("delimiter", query.delimiter[0]);
-  if (query.continuationtoken) {
-    params.append("marker", query.continuationtoken[0]);
+  if (query["continuation-token"]) {
+    params.append("marker", query["continuation-token"][0]);
   }
   if (query["max-keys"]) params.append("limit", query["max-keys"][0]);
 
@@ -238,15 +238,19 @@ export async function listObjects(
     logger.info(`Get List of Objects Successful: ${response.statusText}`);
   }
 
-  const delimiter = query.delimiter ? query.delimiter[0] : undefined;
-  const prefix = query.prefix ? query.prefix[0] : undefined;
-  const maxKeys = query["max-keys"] ? Number(query["max-keys"][0]) : undefined;
+  const delimiter = query.delimiter ? query.delimiter[0] : null;
+  const prefix = query.prefix ? query.prefix[0] : null;
+  const maxKeys = query["max-keys"] ? Number(query["max-keys"][0]) : null;
+  const continuationToken = query["continuation-token"]
+    ? query["continuation-token"][0]
+    : null;
   const formattedResponse = await toS3XmlContent(
     response,
     bucket,
     delimiter,
     prefix,
-    maxKeys,
+    maxKeys ?? 1000,
+    continuationToken,
   );
   return formattedResponse;
 }

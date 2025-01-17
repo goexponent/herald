@@ -54,9 +54,10 @@ function extractCommonPrefixes(folders: object[]): string[] {
 export async function toS3XmlContent(
   swiftResponse: Response,
   bucket: string,
-  delimiter?: string,
-  prefix?: string,
+  delimiter: string | null,
+  prefix: string | null,
   maxKeys = 1000,
+  continuationToken: string | null,
 ): Promise<Response> {
   const swiftBody = await swiftResponse.json();
 
@@ -81,6 +82,12 @@ export async function toS3XmlContent(
       Contents: contents,
       CommonPrefixes: commonPrefixes.map((prefix) => ({ Prefix: prefix })),
       KeyCount: commonPrefixes.length + contents.length,
+      ContinuationToken: continuationToken,
+      NextContinuationToken: contents.length !== 0
+        ? contents[contents.length - 1].Key
+        : (commonPrefixes.length !== 0
+          ? commonPrefixes[commonPrefixes.length - 1]
+          : null),
     },
   };
 
