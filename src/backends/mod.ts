@@ -10,10 +10,11 @@ import { s3Resolver } from "./s3/mod.ts";
 import { swiftResolver } from "./swift/mod.ts";
 import { extractRequestInfo } from "../utils/s3.ts";
 import { getLogger } from "../utils/log.ts";
+import { hasBucketAccess } from "../auth/mod.ts";
 
 const logger = getLogger(import.meta);
 
-export async function resolveHandler(c: Context) {
+export async function resolveHandler(c: Context, serviceAccountName: string) {
   logger.debug("Resolving Handler for Request...");
   const reqInfo = extractRequestInfo(c.req.raw);
   const { bucket } = reqInfo;
@@ -22,6 +23,16 @@ export async function resolveHandler(c: Context) {
     logger.critical("Bucket not specified in the request");
     throw new HTTPException(400, {
       message: "Bucket not specified in the request",
+    });
+  }
+
+  if (!hasBucketAccess(serviceAccountName, bucket)) {
+    logger.critical(
+      `Service Account: ${serviceAccountName} does not have access to bucket: ${bucket}`,
+    );
+    throw new HTTPException(403, {
+      message: `Access Denied:
+        Service Account: ${serviceAccountName} does not have access to bucket: ${bucket}`,
     });
   }
 

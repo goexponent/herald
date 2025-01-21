@@ -216,3 +216,40 @@ export function deserializeToRequest(data: Record<string, any>): Request {
     // body: data.method !== 'GET' && data.method !== 'HEAD' ? data.body : null,
   });
 }
+
+export async function retryFetchWithTimeout<T>(
+  fn: () => Promise<T>,
+  retries = 5,
+  initialDelay = 100,
+  maxDelay = 1000,
+  timeout = 10000,
+): Promise<T | Error> {
+  let attempt = 0;
+  let delayDuration = initialDelay;
+  let err: Error = new Error("Unknown error");
+
+  while (attempt < retries) {
+    try {
+      const result = await Promise.race<[Promise<T>, Promise<Error>]>([
+        fn(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), timeout)
+        ),
+      ]);
+      return result;
+    } catch (error) {
+      if (attempt >= retries - 1) {
+        logger.critical(error);
+        reportToSentry(error as Error);
+        err = error as Error;
+        attempt++;
+      }
+
+      await delay(delayDuration);
+      delayDuration = Math.min(delayDuration * 2, maxDelay);
+      attempt++;
+    }
+  }
+
+  return err;
+}
