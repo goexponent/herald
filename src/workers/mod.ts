@@ -1,10 +1,13 @@
 import taskStore from "../backends/task_store.ts";
+import { initializeTaskHandler } from "../backends/tasks.ts";
 import { SAVETASKQUEUE } from "../constants/message.ts";
 import { getLogger } from "../utils/log.ts";
 
 const logger = getLogger(import.meta);
 export async function registerWorkers() {
   logger.info("Registering Workers...");
+
+  // k8s signal handler worker
   logger.debug("Registering Worker: Signal Handler");
   const worker = new Worker(
     new URL("./signal_handlers.ts", import.meta.url).href,
@@ -47,4 +50,9 @@ export async function registerWorkers() {
       reject(err);
     };
   });
+
+  // Mirror task handler workers
+  logger.info("Registering Worker: Task Handler");
+  await initializeTaskHandler();
+  logger.info("Worker: Task Handler Registered");
 }

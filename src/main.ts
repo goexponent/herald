@@ -6,7 +6,7 @@ import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
 import { verifyServiceAccountToken } from "./auth/mod.ts";
-import { initializeTaskHandler } from "./backends/tasks.ts";
+import { registerWorkers } from "./workers/mod.ts";
 
 // setup
 await configInit();
@@ -94,7 +94,7 @@ app.onError((err, c) => {
   return c.text(errMessage);
 });
 
-await initializeTaskHandler();
+await registerWorkers();
 
 Deno.serve({ port: globalConfig.port }, app.fetch);
 
