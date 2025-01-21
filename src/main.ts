@@ -88,7 +88,7 @@ app.onError((err, c) => {
     return errResponse;
   }
 
-  const errMessage = "Something wrong happened in the proxy.";
+  const errMessage = `Something wrong happened in the proxy: ${err.message}`;
   logger.error(errMessage);
   reportToSentry(errMessage);
   return c.text(errMessage);
