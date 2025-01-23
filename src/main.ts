@@ -88,10 +88,11 @@ app.onError((err, c) => {
     return errResponse;
   }
 
-  const errMessage = `Something wrong happened in the proxy: ${err.message}`;
+  const errMessage = `Something went wrong in the proxy: ${err.message}`;
+  const errResponse = "Something went wrong in the proxy";
   logger.error(errMessage);
   reportToSentry(errMessage);
-  return c.text(errMessage);
+  return c.text(errResponse);
 });
 
 await registerWorkers();

@@ -3,26 +3,53 @@ import { initializeTaskHandler } from "../backends/tasks.ts";
 import { SAVETASKQUEUE } from "../constants/message.ts";
 import { getLogger } from "../utils/log.ts";
 
+const MAX_RETRIES = 3;
+let worker: Worker | null = null;
+
+function cleanupWorker() {
+  if (worker) {
+    worker.terminate();
+    worker = null;
+  }
+}
+
 async function initalizeSignalHandler() {
   logger.info("Registering Worker: Signal Handler");
-  const worker = new Worker(
-    new URL("./signal_handlers.ts", import.meta.url).href,
-    {
-      type: "module",
-      name: "Signal Handler Worker",
-    },
-  );
+  let retries = 0;
+  while (retries < MAX_RETRIES) {
+    try {
+      cleanupWorker();
+      worker = new Worker(
+        new URL("./signal_handlers.ts", import.meta.url).href,
+        {
+          type: "module",
+          name: "Signal Handler Worker",
+        },
+      );
+      break;
+    } catch (error) {
+      retries++;
+      logger.error(
+        `Failed to initialize worker (attempt ${retries}): ${error}`,
+      );
+      if (retries === MAX_RETRIES) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * retries));
+    }
+  }
+  if (worker === null) {
+    throw new Error("Failed to initialize worker");
+  }
   const workerCreation = () => {
     return new Promise((resolve, reject) => {
-      worker.onmessage = (evt: MessageEvent<string>) => {
+      worker!.onmessage = (evt: MessageEvent<string>) => {
         const res = evt.data;
         logger.info(res);
         resolve(res);
       };
-      worker.onmessageerror = (evt) => {
+      worker!.onmessageerror = (evt) => {
         reject(evt.data);
       };
-      worker.onerror = (err) => {
+      worker!.onerror = (err) => {
         reject(err);
       };
     });
@@ -33,8 +60,13 @@ async function initalizeSignalHandler() {
     const msg = evt.data;
     if (msg === SAVETASKQUEUE) {
       logger.info("Received Save Task Queue Signal");
-      const _ = await taskStore.syncToRemote();
-      logger.info("Task Queue Synced to Remote Successfully");
+      try {
+        await taskStore.syncToRemote();
+        logger.info("Task Queue Synced to Remote Successfully");
+        worker?.postMessage("SAVE_COMPLETE");
+      } catch (error) {
+        logger.error(`Failed to sync task queue: ${error}`);
+      }
     }
   };
   worker.onmessageerror = (evt) => {
