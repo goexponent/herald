@@ -57,7 +57,12 @@ class S3BucketComparator:
             return set(object_keys)
         return set()
 
-    def compare_buckets(self, other_bucket: "S3BucketComparator") -> Dict:
+    def compare_buckets(
+        self,
+        other_bucket: "S3BucketComparator",
+        primary_bucket: str,
+        mirror_bucket: str,
+    ) -> Dict:
         """Compare contents and metadata of two buckets."""
 
         logging.info("Comparing bucket contents")
@@ -65,8 +70,12 @@ class S3BucketComparator:
         mirror_bucket_contents = other_bucket.list_contents()
 
         differences = {
-            "only_in_bucket1": list(primary_bucket_contents - mirror_bucket_contents),
-            "only_in_bucket2": list(mirror_bucket_contents - primary_bucket_contents),
+            f"only_in_primary_bucket_{primary_bucket}": list(
+                primary_bucket_contents - mirror_bucket_contents
+            ),
+            f"only_in_mirror_bucket_{mirror_bucket}": list(
+                mirror_bucket_contents - primary_bucket_contents
+            ),
         }
         return differences
 
@@ -142,7 +151,11 @@ def main():
         endpoint_url=mirror_bucket_config["endpoint_url"],
     )
 
-    differences = mirror_bucket.compare_buckets(primary_bucket)
+    differences = mirror_bucket.compare_buckets(
+        primary_bucket,
+        primary_bucket_config["bucket_name"],
+        mirror_bucket_config["bucket_name"],
+    )
     primary_bucket.save_differences_to_json(differences, "bucket_differences.json")
     logging.info("Script execution completed")
 
