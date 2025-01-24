@@ -1,12 +1,11 @@
-bucket1:
+primary:
   bucket_name: "<bucket_name>"
   credentials_file: "./credentials"
-  profile: "bucket1"
+  profile: "primary"
   endpoint_url: "<endpoint_url>"
 
-bucket2:
+mirror:
   bucket_name: "<bucket_name>"
   credentials_file: "./credentials"
-  profile: "bucket2"
+  profile: "mirror"
   endpoint_url: "<endpoint_url>"
-

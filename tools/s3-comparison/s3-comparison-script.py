@@ -61,12 +61,12 @@ class S3BucketComparator:
         """Compare contents and metadata of two buckets."""
 
         logging.info("Comparing bucket contents")
-        bucket1_contents = self.list_contents()
-        bucket2_contents = other_bucket.list_contents()
+        primary_bucket_contents = self.list_contents()
+        mirror_bucket_contents = other_bucket.list_contents()
 
         differences = {
-            "only_in_bucket1": list(bucket1_contents - bucket2_contents),
-            "only_in_bucket2": list(bucket2_contents - bucket1_contents),
+            "only_in_bucket1": list(primary_bucket_contents - mirror_bucket_contents),
+            "only_in_bucket2": list(mirror_bucket_contents - primary_bucket_contents),
         }
         return differences
 
@@ -107,43 +107,43 @@ def main():
         logging.error(f"Error parsing YAML file: {e}")
         return
 
-    bucket1_config = config.get("bucket1")
-    if not bucket1_config:
-        logging.error("Bucket1 configuration not found in 'conf.yaml'.")
+    primary_bucket_config = config.get("primary")
+    if not primary_bucket_config:
+        logging.error("Primary bucket configuration not found in 'conf.yaml'.")
         return
 
     required_keys = ["bucket_name", "credentials_file", "profile", "endpoint_url"]
     for key in required_keys:
-        if key not in bucket1_config:
-            logging.error(f"Missing '{key}' in bucket1 configuration.")
+        if key not in primary_bucket_config:
+            logging.error(f"Missing '{key}' in primary bucket configuration.")
             return
 
-    bucket2_config = config.get("bucket2")
-    if not bucket2_config:
-        logging.error("Bucket2 configuration not found in 'conf.yaml'.")
+    mirror_bucket_config = config.get("mirror")
+    if not mirror_bucket_config:
+        logging.error("Mirror bucket configuration not found in 'conf.yaml'.")
         return
 
     for key in required_keys:
-        if key not in bucket2_config:
-            logging.error(f"Missing '{key}' in bucket2 configuration.")
+        if key not in mirror_bucket_config:
+            logging.error(f"Missing '{key}' in mirror bucket configuration.")
             return
 
-    bucket1 = S3BucketComparator(
-        bucket_name=bucket1_config["bucket_name"],
-        credentials_file=bucket1_config["credentials_file"],
-        profile=bucket1_config["profile"],
-        endpoint_url=bucket1_config["endpoint_url"],
+    primary_bucket = S3BucketComparator(
+        bucket_name=primary_bucket_config["bucket_name"],
+        credentials_file=primary_bucket_config["credentials_file"],
+        profile=primary_bucket_config["profile"],
+        endpoint_url=primary_bucket_config["endpoint_url"],
     )
 
-    bucket2 = S3BucketComparator(
-        bucket_name=bucket2_config["bucket_name"],
-        credentials_file=bucket2_config["credentials_file"],
-        profile=bucket2_config["profile"],
-        endpoint_url=bucket2_config["endpoint_url"],
+    mirror_bucket = S3BucketComparator(
+        bucket_name=mirror_bucket_config["bucket_name"],
+        credentials_file=mirror_bucket_config["credentials_file"],
+        profile=mirror_bucket_config["profile"],
+        endpoint_url=mirror_bucket_config["endpoint_url"],
     )
 
-    differences = bucket2.compare_buckets(bucket1)
-    bucket1.save_differences_to_json(differences, "bucket_differences.json")
+    differences = mirror_bucket.compare_buckets(primary_bucket)
+    primary_bucket.save_differences_to_json(differences, "bucket_differences.json")
     logging.info("Script execution completed")
 
 
