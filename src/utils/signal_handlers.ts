@@ -1,22 +1,25 @@
-import { SAVETASKQUEUE } from "../constants/message.ts";
+import taskStore from "../backends/task_store.ts";
 import { SAVE_TASK_STORE_TIMEOUT } from "../constants/time.ts";
-import { getLogger } from "../utils/log.ts";
+import { getLogger } from "./log.ts";
 
-self.postMessage(`${name} Worker Started`);
 async function handleTermSignal() {
   const logger = getLogger(import.meta);
   logger.info(
     "Received TERM signal. Clearing resources, saving state, and exiting gracefully...",
   );
   try {
-    self.postMessage(SAVETASKQUEUE);
     // Allow time for task queue save and cleanup
     await Promise.race([
       new Promise((resolve) => setTimeout(resolve, SAVE_TASK_STORE_TIMEOUT)), // 30s timeout
-      new Promise((resolve) => {
-        self.onmessage = (evt) => {
-          if (evt.data === "SAVE_COMPLETE") resolve(null);
-        };
+      new Promise((resolve, reject) => {
+        logger.info("Received Save Task Queue Signal");
+        taskStore.syncToRemote().then((res) => {
+          logger.info("Task Queue Synced to Remote Successfully");
+          resolve(res);
+        }).catch((error) => {
+          logger.error(`Failed to sync task queue: ${error}`);
+          reject(error);
+        });
       }),
     ]);
   } catch (error) {
@@ -26,4 +29,6 @@ async function handleTermSignal() {
   }
 }
 
-Deno.addSignalListener("SIGTERM", handleTermSignal);
+export function registerSignalHandlers() {
+  Deno.addSignalListener("SIGTERM", handleTermSignal);
+}

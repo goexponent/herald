@@ -7,6 +7,7 @@ import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
 import { verifyServiceAccountToken } from "./auth/mod.ts";
 import { registerWorkers } from "./workers/mod.ts";
+import { registerSignalHandlers } from "./utils/signal_handlers.ts";
 
 // setup
 await configInit();
@@ -95,6 +96,7 @@ app.onError((err, c) => {
   return c.text(errResponse);
 });
 
+registerSignalHandlers();
 await registerWorkers();
 
 const controller = new AbortController();
