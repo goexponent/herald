@@ -116,7 +116,14 @@ export const envVarConfigSchema = z.object({
     .enum(["NOTSET", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"])
     .optional(),
   env: z.enum(["DEV", "PROD"]).default("DEV"),
+  k8s_api: z.string().default("https://kubernetes.default.svc"),
+  cert_path: z.string().default(
+    "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+  ),
   config_file_path: z.string().default("herald.yaml"),
+  service_account_token_path: z.string().default(
+    "/var/run/secrets/kubernetes.io/serviceaccount/token",
+  ),
   version: z.string().default("0.1"),
   sentry_dsn: z.string().optional(),
   sentry_sample_rate: z.coerce.number().positive().min(0).max(1).default(1),
