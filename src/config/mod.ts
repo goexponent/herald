@@ -1,3 +1,4 @@
+import { BucketStore, initializeBucketStore } from "../buckets/mod.ts";
 import { getBucketConfig, loadConfig, loadEnvConfig } from "./loader.ts";
 import {
   EnvVarConfig,
@@ -17,6 +18,7 @@ export let globalConfig: GlobalConfig;
 export let envVarsConfig: EnvVarConfig;
 export { getBackendDef } from "./loader.ts";
 export let proxyUrl: string;
+export let bucketStore: BucketStore;
 
 export async function configInit() {
   globalConfig = await loadConfig();
@@ -25,6 +27,7 @@ export async function configInit() {
     sentry_traces_sample_rate: 1,
   });
   proxyUrl = `http://localhost:${globalConfig.port}`;
+  bucketStore = initializeBucketStore(globalConfig);
 }
 
 await configInit();
