@@ -24,6 +24,7 @@ async function handleTermSignal() {
     ]);
   } catch (error) {
     logger.error(`Error during shutdown: ${error}`);
+    Deno.exit(1);
   } finally {
     Deno.exit(0);
   }
