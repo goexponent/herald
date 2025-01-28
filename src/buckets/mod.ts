@@ -1,4 +1,5 @@
-import { BucketConfig, GlobalConfig, ReplicaConfig } from "../config/types.ts";
+import { S3Config } from "../config/mod.ts";
+import { GlobalConfig, SwiftConfig } from "../config/types.ts";
 
 export interface BucketStore {
   buckets: Bucket[];
@@ -7,33 +8,34 @@ export interface BucketStore {
 export class Bucket {
   constructor(
     private name: string,
-    private bucketConfig: BucketConfig | ReplicaConfig,
-    private replicas: Bucket[],
-    private typ: string,
+    private _config: S3Config | SwiftConfig,
+    private _replicas: Bucket[],
+    private _typ: string,
+    private _backend: string,
   ) {}
 
   public getName() {
     return this.name;
   }
 
-  public getBucket() {
-    return this.bucketConfig;
-  }
-
   public hasReplicas() {
     return this.replicas.length > 0;
   }
 
-  public getReplicas() {
-    return this.replicas;
+  get replicas() {
+    return this._replicas;
   }
 
-  public getConfig() {
-    return this.bucketConfig.config;
+  get config() {
+    return this._config;
   }
 
-  public getType() {
-    return this.typ;
+  get typ() {
+    return this._typ;
+  }
+
+  get backend() {
+    return this._backend;
   }
 }
 
@@ -48,8 +50,16 @@ export function initializeBucketStore(config: GlobalConfig): BucketStore {
         ? replica.config.bucket
         : replica.config.container;
       return replicaBucketName === bucketName;
-    }).map((replica) => new Bucket(replica.name, replica, [], replica.typ));
-    const bucket = new Bucket(name, bucketConfig, replicas, bucketConfig.typ);
+    }).map((replica) =>
+      new Bucket(replica.name, replica.config, [], replica.typ, replica.backend)
+    );
+    const bucket = new Bucket(
+      name,
+      bucketConfig.config,
+      replicas,
+      bucketConfig.typ,
+      bucketConfig.backend,
+    );
     buckets.push(bucket);
   }
 

@@ -17,8 +17,9 @@ import {
 import { parse } from "@std/yaml";
 import { deepMerge } from "std/collections";
 import { envVarConfigSchema } from "./types.ts";
-import { globalConfig } from "./mod.ts";
+import { bucketStore, globalConfig } from "./mod.ts";
 import { red } from "std/fmt/colors";
+import { Bucket } from "../buckets/mod.ts";
 
 // const logger = getLogger(import.meta, "INFO");
 
@@ -127,10 +128,12 @@ function validateProtocol(config: GlobalConfig) {
       configOrExit(s3BucketConfigSchema, {}, [
         bucketConfig,
       ]);
-    } else {
+    } else if (protocol === "swift") {
       configOrExit(swiftBucketConfigSchema, {}, [
         bucketConfig,
       ]);
+    } else {
+      throw new Error(`Invalid Protocol: ${protocol}`);
     }
   }
 
@@ -146,38 +149,14 @@ function validateProtocol(config: GlobalConfig) {
 
 export function getBackendDef(backendName: string): {
   protocol: "s3" | "swift";
-} | null {
-  return globalConfig.backends[backendName] ?? null;
+} {
+  return globalConfig.backends[backendName]!;
 }
 
-export function getBucketConfig(
+export function getBucket(
   bucketName: string,
-): S3BucketConfig | SwiftBucketConfig | null {
-  const definedBuckets = globalConfig.buckets;
-  const bucketConfig = definedBuckets[bucketName];
-
-  // check if a config exits for the bucket
-  if (!bucketConfig) {
-    return null;
-  }
-
-  // get the protocol type and parse the config accordingly
-  const backendName = bucketConfig.backend;
-  const backendDef = getBackendDef(backendName);
-  if (!backendDef) {
-    return null;
-  }
-
-  const protocol = backendDef.protocol;
-  if (protocol === "s3") {
-    return configOrExit(s3BucketConfigSchema, {}, [
-      bucketConfig,
-    ]) as S3BucketConfig;
-  } else {
-    return configOrExit(swiftBucketConfigSchema, {}, [
-      bucketConfig,
-    ]) as SwiftBucketConfig;
-  }
+): Bucket | null {
+  return bucketStore.buckets.find((b) => b.getName() === bucketName) ?? null;
 }
 
 export function loadEnvConfig(

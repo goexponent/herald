@@ -1,5 +1,5 @@
 import { BucketStore, initializeBucketStore } from "../buckets/mod.ts";
-import { getBucketConfig, loadConfig, loadEnvConfig } from "./loader.ts";
+import { getBucket, loadConfig, loadEnvConfig } from "./loader.ts";
 import {
   EnvVarConfig,
   GlobalConfig,
@@ -11,9 +11,9 @@ import {
 export type { S3BucketConfig, S3Config, SwiftBucketConfig } from "./types.ts";
 
 export const getS3Config = (bucketName: string) =>
-  getBucketConfig(bucketName) as S3BucketConfig;
+  getBucket(bucketName) as S3BucketConfig;
 export const getSwiftConfig = (bucketName: string) =>
-  getBucketConfig(bucketName) as SwiftBucketConfig;
+  getBucket(bucketName) as SwiftBucketConfig;
 export let globalConfig: GlobalConfig;
 export let envVarsConfig: EnvVarConfig;
 export { getBackendDef } from "./loader.ts";

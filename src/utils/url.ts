@@ -2,12 +2,8 @@ import { globalConfig, S3Config } from "../config/mod.ts";
 import { getLogger, reportToSentry } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
 import { AUTH_HEADER, HOST_HEADER } from "../constants/headers.ts";
-import { HTTPException } from "../types/http-exception.ts";
 import { s3ReqParams } from "../constants/query-params.ts";
-import { createXmlErrorResponse } from "./error.ts";
-import { ReplicaConfig, SwiftConfig } from "../config/types.ts";
-import { s3Resolver } from "../backends/s3/mod.ts";
-import { swiftResolver } from "../backends/swift/mod.ts";
+import { ReplicaConfig } from "../config/types.ts";
 
 const logger = getLogger(import.meta);
 
@@ -63,8 +59,6 @@ export function isContentLengthNonZero(request: Request): boolean {
 export async function forwardRequestWithTimeouts(
   request: Request,
   s3Config: S3Config,
-  readReplicaOp = false,
-  isReplica = false,
 ) {
   const forwardRequest = async (config: S3Config) => {
     const redirect = getRedirectUrl(request.url, config.endpoint);
@@ -129,27 +123,12 @@ export async function forwardRequestWithTimeouts(
     return clonedResponse;
   };
 
-  const replicas = getReplicas(s3Config.bucket);
-  const result = replicas.length > 0 && readReplicaOp
-    ? await retryWithExponentialBackoffReplica(
-      forwardRequest,
-      () => {},
-      s3Config,
-      isReplica ? 0 : 3,
-      100,
-      10000,
-      request,
-      replicas,
-    )
-    : await retryWithExponentialBackoff(
-      forwardRequest,
-      () => {},
-      s3Config,
-      isReplica ? 0 : 3,
-      100,
-      10000,
-      isReplica,
-    );
+  const result = await retryWithExponentialBackoff(
+    forwardRequest,
+    s3Config,
+    100,
+    10000,
+  );
 
   return result;
 }
@@ -169,25 +148,19 @@ function delay(ms: number): Promise<void> {
 
 // Function to handle exponential backoff retries
 export async function retryWithExponentialBackoff<T>(
-  s3Fn: (config: S3Config) => Promise<T> | void,
-  swiftFn: () => Promise<T> | void,
-  config: S3Config | SwiftConfig,
+  fn: (config: S3Config) => Promise<T>,
+  config: S3Config,
   retries = 3,
   initialDelay = 100,
   maxDelay = 1000,
-  isReplica = false,
-): Promise<T> {
+): Promise<T | Error> {
   let attempt = 0;
   let delayDuration = initialDelay;
   let err: Error = new Error("Unknown error");
 
   while (attempt < retries) {
     try {
-      if (config.typ === "S3Config") {
-        return await s3Fn(config)!;
-      }
-
-      return await swiftFn()!;
+      return await fn(config);
     } catch (error) {
       if (attempt >= retries - 1) {
         logger.critical(error);
@@ -202,72 +175,13 @@ export async function retryWithExponentialBackoff<T>(
     }
   }
 
-  if (isReplica) {
-    throw err;
-  }
-
-  const resource = config.typ === "S3Config" ? config.bucket : config.container;
-  const errResponse = createXmlErrorResponse(err, 502, resource);
-  throw new HTTPException(errResponse.status, {
-    res: errResponse,
-  });
-}
-
-// Function to handle exponential backoff retries
-export async function retryWithExponentialBackoffReplica<T>(
-  s3Fn: (config: S3Config) => Promise<T> | void,
-  swiftFn: () => Promise<T> | void,
-  config: S3Config | SwiftConfig,
-  retries = 3,
-  initialDelay = 100,
-  maxDelay = 1000,
-  request: Request,
-  replicas: ReplicaConfig[],
-): Promise<T> {
-  let attempt = 0;
-  let delayDuration = initialDelay;
-  let err: Error = new Error("Unknown error");
-
-  while (attempt < retries) {
-    try {
-      if (config.typ === "S3Config") {
-        return await s3Fn(config)!;
-      }
-
-      return await swiftFn()!;
-    } catch (error) {
-      while (replicas.length > 0) {
-        const replica = replicas.pop()!;
-        try {
-          if (replica.typ === "ReplicaS3Config") {
-            return await s3Resolver(request, replica) as T;
-          } else {
-            return await swiftResolver(request, replica) as T;
-          }
-        } catch (_err) {
-          // continue to the next replica available
-          continue;
-        }
-      }
-
-      if (attempt >= retries - 1) {
-        logger.critical(error);
-        reportToSentry(error as Error);
-        err = error as Error;
-        attempt++;
-      }
-
-      await delay(delayDuration);
-      delayDuration = Math.min(delayDuration * 2, maxDelay);
-      attempt++;
-    }
-  }
-
-  const resource = config.typ === "S3Config" ? config.bucket : config.container;
-  const errResponse = createXmlErrorResponse(err, 502, resource);
-  throw new HTTPException(errResponse.status, {
-    res: errResponse,
-  });
+  return err;
+  // const resource = config.bucket;
+  // const errResponse = createXmlErrorResponse(err, 502, resource);
+  // const error = new HTTPException(errResponse.status, {
+  //   res: errResponse,
+  // });
+  // return error;
 }
 
 export function areQueryParamsSupported(queryParams: string[]): boolean {

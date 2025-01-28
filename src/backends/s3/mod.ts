@@ -13,10 +13,10 @@ import {
   routeQueryParamedRequest,
 } from "./buckets.ts";
 import { HTTPException } from "../../types/http-exception.ts";
-import { ReplicaS3Config, S3BucketConfig } from "../../config/types.ts";
 import { areQueryParamsSupported } from "../../utils/url.ts";
 import { extractRequestInfo } from "../../utils/s3.ts";
 import { getLogger } from "../../utils/log.ts";
+import { Bucket } from "../../buckets/mod.ts";
 
 const handlers = {
   putObject,
@@ -34,8 +34,8 @@ const handlers = {
 const logger = getLogger(import.meta);
 export async function s3Resolver(
   request: Request,
-  bucketConfig: S3BucketConfig | ReplicaS3Config,
-) {
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   const { method, objectKey, queryParams } = extractRequestInfo(request);
   const queryParamKeys = Object.keys(queryParams);
 
@@ -44,7 +44,8 @@ export async function s3Resolver(
     case "GET":
       if (objectKey) {
         return await handlers.getObject(request, bucketConfig);
-      } else if (queryParams["list-type"]) {
+      }
+      if (queryParams["list-type"]) {
         return await handlers.listObjects(request, bucketConfig);
       }
 
@@ -67,7 +68,9 @@ export async function s3Resolver(
     case "PUT":
       if (objectKey && request.headers.get("x-amz-copy-source") !== undefined) {
         return await handlers.copyObject(request, bucketConfig);
-      } else if (objectKey) {
+      }
+
+      if (objectKey) {
         return await handlers.putObject(request, bucketConfig);
       }
 

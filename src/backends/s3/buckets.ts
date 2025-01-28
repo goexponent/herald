@@ -1,36 +1,31 @@
 import { formatParams, forwardRequestWithTimeouts } from "../../utils/url.ts";
 import { getLogger, reportToSentry } from "../../utils/log.ts";
 import { S3BucketConfig, S3Config } from "../../config/mod.ts";
-import {
-  isBucketConfig,
-  isReplicaConfig,
-  ReplicaS3Config,
-} from "../../config/types.ts";
-import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
+import { prepareMirrorRequests } from "../mirror.ts";
+import { Bucket } from "../../buckets/mod.ts";
+import { s3Resolver } from "./mod.ts";
+import { swiftResolver } from "../swift/mod.ts";
 
 const logger = getLogger(import.meta);
 
 export async function createBucket(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
+  bucketConfig: Bucket,
 ) {
   logger.info("[S3 backend] Proxying Create Bucket Request...");
 
-  let config: S3Config;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as S3Config;
-  }
+  const config: S3Config = bucketConfig.config as S3Config;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const response = await forwardRequestWithTimeouts(
     req,
     config,
   );
+
+  if (response instanceof Error) {
+    logger.warn(`Create Bucket Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status != 200) {
     const errMessage = `Create Bucket Failed: ${response.statusText}`;
@@ -52,25 +47,22 @@ export async function createBucket(
 
 export async function deleteBucket(
   req: Request,
-  bucketConfig: S3Config | S3BucketConfig | ReplicaS3Config,
+  bucketConfig: Bucket,
 ) {
   logger.info("[S3 backend] Proxying Delete Bucket Request...");
 
-  let config: S3Config;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig) || isReplicaConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (isBucketConfig(bucketConfig) && hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as S3Config;
-  }
+  const config: S3Config = bucketConfig.config as S3Config;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const response = await forwardRequestWithTimeouts(
     req,
     config,
   );
+
+  if (response instanceof Error) {
+    logger.warn(`Delete Bucket Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status != 204) {
     const errMessage = `Delete Bucket Failed: ${response.statusText}`;
@@ -92,16 +84,36 @@ export async function deleteBucket(
 
 export async function routeQueryParamedRequest(
   req: Request,
-  bucketConfig: S3BucketConfig | ReplicaS3Config,
+  bucketConfig: Bucket,
   queryParams: string[],
 ) {
   const formattedParams = formatParams(queryParams);
   logger.info(`[S3 backend] Proxying Get Bucket ${formattedParams} Request...`);
 
-  const response = await forwardRequestWithTimeouts(
+  let response = await forwardRequestWithTimeouts(
     req,
-    bucketConfig.config,
+    bucketConfig.config as S3Config,
   );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `${formatParams} Operation Failed on Replica: ${replica.getName()}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`${formatParams} Operation Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status != 200) {
     const errMessage =
@@ -119,14 +131,32 @@ export async function routeQueryParamedRequest(
 
 export async function headBucket(
   req: Request,
-  bucketConfig: S3BucketConfig | ReplicaS3Config,
-): Promise<Response> {
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info(`[S3 backend] Proxying Head Bucket Request...`);
 
-  const response = await forwardRequestWithTimeouts(
+  let response = await forwardRequestWithTimeouts(
     req,
-    bucketConfig.config,
+    bucketConfig.config as S3Config,
   );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(`Head Bucket Failed on Replica: ${replica.getName()}`);
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Head Bucket Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status != 200) {
     const errMessage = `Head Bucket Failed: ${response.statusText}`;

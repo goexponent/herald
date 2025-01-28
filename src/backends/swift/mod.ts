@@ -1,4 +1,3 @@
-import { ReplicaSwiftConfig, SwiftBucketConfig } from "../../config/types.ts";
 import {
   copyObject,
   deleteObject,
@@ -29,6 +28,7 @@ import {
 import { HTTPException } from "../../types/http-exception.ts";
 import { getLogger } from "../../utils/log.ts";
 import { s3Utils } from "../../utils/mod.ts";
+import { Bucket } from "../../buckets/mod.ts";
 
 const handlers = {
   putObject,
@@ -46,8 +46,8 @@ const handlers = {
 const logger = getLogger(import.meta);
 export async function swiftResolver(
   req: Request,
-  bucketConfig: SwiftBucketConfig | ReplicaSwiftConfig,
-): Promise<Response | undefined> {
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   const { method, objectKey } = s3Utils.extractRequestInfo(req);
   const url = new URL(req.url);
   const queryParam = url.searchParams.keys().next().value;
