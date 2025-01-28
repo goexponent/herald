@@ -156,7 +156,7 @@ export function getBackendDef(backendName: string): {
 export function getBucket(
   bucketName: string,
 ): Bucket | null {
-  return bucketStore.buckets.find((b) => b.getName() === bucketName) ?? null;
+  return bucketStore.buckets.find((b) => b.name === bucketName) ?? null;
 }
 
 export function loadEnvConfig(

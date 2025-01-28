@@ -26,7 +26,7 @@ export async function getObject(
         ? await s3Resolver(req, replica)
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
-        logger.warn(`Get Object Failed on Replica: ${replica.getName()}`);
+        logger.warn(`Get Object Failed on Replica: ${replica.name}`);
         continue;
       }
       response = res;
@@ -66,7 +66,7 @@ export async function listObjects(
         ? await s3Resolver(req, replica)
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
-        logger.warn(`List Objects Failed on Replica: ${replica.getName()}`);
+        logger.warn(`List Objects Failed on Replica: ${replica.name}`);
         continue;
       }
       response = res;
@@ -221,7 +221,7 @@ export async function headObject(
         ? await s3Resolver(req, replica)
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
-        logger.warn(`Head Object Failed on Replica: ${replica.getName()}`);
+        logger.warn(`Head Object Failed on Replica: ${replica.name}`);
         continue;
       }
       response = res;

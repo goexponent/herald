@@ -7,15 +7,19 @@ export interface BucketStore {
 
 export class Bucket {
   constructor(
-    private name: string,
+    private _name: string,
     private _config: S3Config | SwiftConfig,
     private _replicas: Bucket[],
     private _typ: string,
     private _backend: string,
   ) {}
 
-  public getName() {
-    return this.name;
+  public getReplica(name: string) {
+    return this.replicas.find((replica) => replica.name === name);
+  }
+
+  get name() {
+    return this._name;
   }
 
   public hasReplicas() {

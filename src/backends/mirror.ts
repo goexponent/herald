@@ -17,7 +17,7 @@ import { S3_COPY_SOURCE_HEADER } from "../constants/headers.ts";
 import { MirrorableCommands, MirrorTask } from "./types.ts";
 import taskStore from "./task_store.ts";
 import { deserializeToRequest, serializeRequest } from "../utils/url.ts";
-import { globalConfig } from "../config/mod.ts";
+import { bucketStore, globalConfig } from "../config/mod.ts";
 
 const logger = getLogger(import.meta);
 
@@ -166,7 +166,20 @@ export async function mirrorPutObject(
       headers: generateS3GetObjectHeaders(primary.config),
       method: "GET",
     });
-    const response = await s3.getObject(getObjectRequest, primary);
+
+    const primaryBucket = bucketStore.buckets.find((bucket) =>
+      bucket.name === primary.config.bucket
+    )!;
+    const response = await s3.getObject(getObjectRequest, primaryBucket);
+
+    if (response instanceof Error) {
+      const errMessage = "Get object failed during mirroring to replica bucket";
+      logger.error(
+        errMessage,
+      );
+      reportToSentry(errMessage);
+      return;
+    }
 
     if (!response.ok) {
       const errMesage =
@@ -181,21 +194,23 @@ export async function mirrorPutObject(
     if (replica.typ === "ReplicaS3Config") {
       // put object to s3
 
+      const replicaBucket = primaryBucket.getReplica(replica.name)!;
       const putToS3Request = new Request(originalRequest.url, {
         method: originalRequest.method,
         body: response.body,
         headers: originalRequest.headers,
       });
-      await s3.putObject(putToS3Request, replica.config);
+      await s3.putObject(putToS3Request, replicaBucket);
     } else {
       // put object to swift
+      const replicaBucket = primaryBucket.getReplica(replica.name)!;
       const putToSwiftRequest = new Request(originalRequest.url, {
         body: response.body,
         method: originalRequest.method,
         redirect: originalRequest.redirect,
         headers: originalRequest.headers,
       });
-      await swift.putObject(putToSwiftRequest, replica.config);
+      await swift.putObject(putToSwiftRequest, replicaBucket);
     }
     return;
   }
@@ -217,7 +232,19 @@ export async function mirrorPutObject(
       },
     ),
   });
-  const response = await swift.getObject(getObjectRequest, primary.config);
+  const primaryBucket = bucketStore.buckets.find((bucket) =>
+    bucket.name === primary.config.container
+  )!;
+  const response = await swift.getObject(getObjectRequest, primaryBucket);
+
+  if (response instanceof Error) {
+    const errMessage = "Get object failed during mirroring to replica bucket";
+    logger.error(
+      errMessage,
+    );
+    reportToSentry(errMessage);
+    return;
+  }
 
   if (!response.ok) {
     const errMessage = "Get object failed during mirroring to replica bucket";
@@ -254,14 +281,16 @@ export async function mirrorPutObject(
         response.headers.get("content-type")!,
       );
     }
-    await s3.putObject(putToS3Request, replica.config);
+    const replicaBucket = primaryBucket.getReplica(replica.name)!;
+    await s3.putObject(putToS3Request, replicaBucket);
   } else {
     const putToSwiftRequest = new Request(originalRequest.url, {
       body: response.body,
       method: "PUT",
       headers: originalRequest.headers,
     });
-    await swift.putObject(putToSwiftRequest, replica.config);
+    const replicaBucket = primaryBucket.getReplica(replica.name)!;
+    await swift.putObject(putToSwiftRequest, replicaBucket);
   }
 }
 
@@ -274,6 +303,9 @@ export async function mirrorDeleteObject(
   replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
 ): Promise<void> {
+  const primaryBucket = bucketStore.buckets.find((bucket) =>
+    bucket.name === replica.name
+  )!;
   switch (replica.typ) {
     case "ReplicaS3Config": {
       const headers = new Headers(originalRequest.headers);
@@ -287,12 +319,15 @@ export async function mirrorDeleteObject(
         method: originalRequest.method,
         headers: headers,
       });
-      await s3.deleteObject(modifiedRequest, replica.config);
+      const replicaBucket = primaryBucket.getReplica(replica.name)!;
+      await s3.deleteObject(modifiedRequest, replicaBucket);
       break;
     }
-    case "ReplicaSwiftConfig":
-      await swift.deleteObject(originalRequest, replica.config);
+    case "ReplicaSwiftConfig": {
+      const replicaBucket = primaryBucket.getReplica(replica.name)!;
+      await swift.deleteObject(originalRequest, replicaBucket);
       break;
+    }
     default:
       throw new Error("Invalid replica config type");
   }
@@ -307,6 +342,9 @@ export async function mirrorCopyObject(
   replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
 ): Promise<void> {
+  const primaryBucket = bucketStore.buckets.find((bucket) =>
+    bucket.name === replica.name
+  )!;
   switch (replica.typ) {
     case "ReplicaS3Config": {
       const headers = new Headers(originalRequest.headers);
@@ -320,12 +358,15 @@ export async function mirrorCopyObject(
         method: originalRequest.method,
         headers: headers,
       });
-      await s3.copyObject(modifiedRequest, replica.config);
+      const replicaBucket = primaryBucket.getReplica(replica.name)!;
+      await s3.copyObject(modifiedRequest, replicaBucket);
       break;
     }
-    case "ReplicaSwiftConfig":
-      await swift.copyObject(originalRequest, replica.config);
+    case "ReplicaSwiftConfig": {
+      const replicaBucket = primaryBucket.getReplica(replica.name)!;
+      await swift.copyObject(originalRequest, replicaBucket);
       break;
+    }
     default:
       throw new Error("Invalid replica config type");
   }
@@ -335,15 +376,20 @@ export async function mirrorCreateBucket(
   originalRequest: Request,
   replica: ReplicaS3Config | ReplicaSwiftConfig,
 ): Promise<void> {
+  const primaryBucket = bucketStore.buckets.find((bucket) =>
+    bucket.name === replica.name
+  )!;
   if (replica.typ === "ReplicaS3Config") {
     const modifiedRequest = new Request(originalRequest.url, {
       method: originalRequest.method,
       headers: originalRequest.headers,
       body: generateCreateBucketXml(replica.config.region),
     });
-    await s3_buckets.createBucket(modifiedRequest, replica.config);
+    const replicaBucket = primaryBucket.getReplica(replica.name)!;
+    await s3_buckets.createBucket(modifiedRequest, replicaBucket);
   } else {
-    await swift_buckets.createBucket(originalRequest, replica.config);
+    const replicaBucket = primaryBucket.getReplica(replica.name)!;
+    await swift_buckets.createBucket(originalRequest, replicaBucket);
   }
 }
 
@@ -351,6 +397,9 @@ export async function mirrorDeleteBucket(
   originalRequest: Request,
   replica: ReplicaS3Config | ReplicaSwiftConfig,
 ) {
+  const primaryBucket = bucketStore.buckets.find((bucket) =>
+    bucket.name === replica.name
+  )!;
   if (replica.typ === "ReplicaS3Config") {
     const headers = new Headers(originalRequest.headers);
     headers.set(
@@ -363,9 +412,11 @@ export async function mirrorDeleteBucket(
       method: originalRequest.method,
       headers: headers,
     });
-    await s3_buckets.deleteBucket(modifiedRequest, replica.config);
+    const replicaBucket = primaryBucket.getReplica(replica.name)!;
+    await s3_buckets.deleteBucket(modifiedRequest, replicaBucket);
   } else {
-    await swift_buckets.deleteBucket(originalRequest, replica.config);
+    const replicaBucket = primaryBucket.getReplica(replica.name)!;
+    await swift_buckets.deleteBucket(originalRequest, replicaBucket);
   }
 }
 

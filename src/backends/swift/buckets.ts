@@ -184,7 +184,7 @@ export async function getBucketAcl(
         ? await s3Resolver(req, replica)
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
-        logger.warn(`Get bucket ACL Failed on Replica: ${replica.getName()}`);
+        logger.warn(`Get bucket ACL Failed on Replica: ${replica.name}`);
         continue;
       }
       response = res;
@@ -278,7 +278,7 @@ export async function getBucketVersioning(
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
         logger.warn(
-          `Get bucket versioning Failed on Replica: ${replica.getName()}`,
+          `Get bucket versioning Failed on Replica: ${replica.name}`,
         );
         continue;
       }
@@ -427,7 +427,7 @@ export async function getBucketEncryption(
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
         logger.warn(
-          `Get bucket encryption Failed on Replica: ${replica.getName()}`,
+          `Get bucket encryption Failed on Replica: ${replica.name}`,
         );
         continue;
       }
@@ -507,7 +507,7 @@ export async function headBucket(
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
         logger.warn(
-          `Head bucket Failed on Replica: ${replica.getName()}`,
+          `Head bucket Failed on Replica: ${replica.name}`,
         );
         continue;
       }
@@ -627,7 +627,7 @@ export async function getBucketTagging(
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
         logger.warn(
-          `Get bucket tagging Failed on Replica: ${replica.getName()}`,
+          `Get bucket tagging Failed on Replica: ${replica.name}`,
         );
         continue;
       }
@@ -711,7 +711,7 @@ export async function getBucketPolicy(
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
         logger.warn(
-          `Get bucket policy Failed on Replica: ${replica.getName()}`,
+          `Get bucket policy Failed on Replica: ${replica.name}`,
         );
         continue;
       }

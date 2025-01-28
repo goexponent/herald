@@ -102,7 +102,7 @@ export async function routeQueryParamedRequest(
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
         logger.warn(
-          `${formatParams} Operation Failed on Replica: ${replica.getName()}`,
+          `${formatParams} Operation Failed on Replica: ${replica.name}`,
         );
         continue;
       }
@@ -146,7 +146,7 @@ export async function headBucket(
         ? await s3Resolver(req, replica)
         : await swiftResolver(req, replica);
       if (res instanceof Error) {
-        logger.warn(`Head Bucket Failed on Replica: ${replica.getName()}`);
+        logger.warn(`Head Bucket Failed on Replica: ${replica.name}`);
         continue;
       }
       response = res;
