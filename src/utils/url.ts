@@ -58,9 +58,9 @@ export function isContentLengthNonZero(request: Request): boolean {
  */
 export async function forwardRequestWithTimeouts(
   request: Request,
-  s3Config: S3Config,
+  config: S3Config,
 ) {
-  const forwardRequest = async (config: S3Config) => {
+  const forwardRequest = async () => {
     const redirect = getRedirectUrl(request.url, config.endpoint);
 
     let body: ReadableStream<Uint8Array> | undefined = undefined;
@@ -125,7 +125,6 @@ export async function forwardRequestWithTimeouts(
 
   const result = await retryWithExponentialBackoff(
     forwardRequest,
-    s3Config,
     100,
     10000,
   );
@@ -148,8 +147,7 @@ function delay(ms: number): Promise<void> {
 
 // Function to handle exponential backoff retries
 export async function retryWithExponentialBackoff<T>(
-  fn: (config: S3Config) => Promise<T>,
-  config: S3Config,
+  fn: () => Promise<T>,
   retries = 3,
   initialDelay = 100,
   maxDelay = 1000,
@@ -160,7 +158,7 @@ export async function retryWithExponentialBackoff<T>(
 
   while (attempt < retries) {
     try {
-      return await fn(config);
+      return await fn();
     } catch (error) {
       if (attempt >= retries - 1) {
         logger.critical(error);

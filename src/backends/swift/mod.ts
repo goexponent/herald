@@ -88,7 +88,7 @@ export async function swiftResolver(
         break;
       default:
         logger.critical(`Unsupported query parameter: ${queryParam}`);
-        throw new HTTPException(400, {
+        return new HTTPException(400, {
           message: "Unsupported query parameter",
         });
     }
@@ -107,7 +107,8 @@ export async function swiftResolver(
     case "PUT":
       if (objectKey && req.headers.get("x-amz-copy-source") !== undefined) {
         return await handlers.copyObject(req, bucketConfig);
-      } else if (objectKey) {
+      }
+      if (objectKey) {
         return await handlers.putObject(req, bucketConfig);
       }
 
@@ -126,6 +127,8 @@ export async function swiftResolver(
       return await handlers.headBucket(req, bucketConfig);
     default:
       logger.critical(`Unsupported Request: ${method}`);
-      throw new HTTPException(400, { message: "Unsupported Request" });
+      return new HTTPException(400, { message: "Unsupported Request" });
   }
+
+  return new HTTPException(405, { message: "Method Not Allowed" });
 }

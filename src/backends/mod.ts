@@ -44,12 +44,18 @@ export async function resolveHandler(c: Context, serviceAccountName: string) {
   const bucketBackendDef = getBackendDef(backendName);
 
   const protocol = bucketBackendDef.protocol;
-  if (protocol === "s3") {
-    return await s3Resolver(c, bucket);
-  } else if (protocol === "swift") {
-    return await swiftResolver(c, bucket);
-  } else {
-    logger.critical(`Unsupported Backend Protocol: ${protocol}`);
-    throw new HTTPException(400, { message: "Unsupported Backend Protocol" });
+  const response = protocol === "s3"
+    ? await s3Resolver(c.req.raw, bucket)
+    : await swiftResolver(c.req.raw, bucket);
+
+  if (response instanceof Error) {
+    const httpException = response instanceof Error
+      ? new HTTPException(500, {
+        message: response.message,
+      })
+      : response;
+    throw httpException;
   }
+
+  return response;
 }
