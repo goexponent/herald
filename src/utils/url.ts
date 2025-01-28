@@ -174,12 +174,6 @@ export async function retryWithExponentialBackoff<T>(
   }
 
   return err;
-  // const resource = config.bucket;
-  // const errResponse = createXmlErrorResponse(err, 502, resource);
-  // const error = new HTTPException(errResponse.status, {
-  //   res: errResponse,
-  // });
-  // return error;
 }
 
 export function areQueryParamsSupported(queryParams: string[]): boolean {
