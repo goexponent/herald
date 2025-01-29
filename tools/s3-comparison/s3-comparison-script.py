@@ -8,7 +8,9 @@ from typing import Set, List, Optional, Dict
 
 
 class S3BucketComparator:
-    def __init__(self, bucket_name, credentials_file, profile, endpoint_url):
+    def __init__(
+        self, bucket_name: str, credentials_file: str, profile: str, endpoint_url: str
+    ):
         self.bucket_name = bucket_name
         self.credentials_file = credentials_file
         self.profile = profile
@@ -25,8 +27,7 @@ class S3BucketComparator:
                 full_command.extend(["--endpoint-url", self.endpoint_url])
 
             full_command.extend(shlex.split(command))
-            # Log command without sensitive details
-            logging.info(f"Executing s5cmd command for bucket: {self.bucket_name}")
+            logging.info(f"Executing: {' '.join(full_command)}")
 
             result = subprocess.run(
                 full_command,
@@ -35,65 +36,48 @@ class S3BucketComparator:
                 capture_output=True,
                 timeout=timeout,
             )
-            return result.stdout
+            return result.stdout.strip()
         except subprocess.CalledProcessError as e:
-            logging.error(f"Error executing s5cmd: {e.stderr}")
-            return None
+            logging.error(f"s5cmd error: {e.stderr}")
         except subprocess.TimeoutExpired:
             logging.error(f"Command timed out after {timeout} seconds")
-            return None
+        return None
 
     def list_contents(self) -> Set[str]:
-        """List all objects in the bucket with progress tracking."""
-
-        logging.info(f"Listing contents of bucket {self.bucket_name}")
+        """Lists all objects in the bucket."""
+        logging.info(f"Listing contents of {self.bucket_name}")
         command = f"ls --show-fullpath s3://{self.bucket_name}/*"
         output = self.run_command(command)
-        if output:
-            object_keys = [line for line in output.splitlines()]
-            logging.info(
-                f"Found {len(object_keys)} objects in bucket {self.bucket_name}"
-            )
-            return set(object_keys)
-        return set()
+        return set(output.splitlines()) if output else set()
 
     def compare_buckets(
-        self,
-        other_bucket: "S3BucketComparator",
-        primary_bucket: str,
-        mirror_bucket: str,
-    ) -> Dict:
-        """Compare contents and metadata of two buckets."""
-
-        logging.info("Comparing bucket contents")
-        primary_bucket_contents = self.list_contents()
-        mirror_bucket_contents = other_bucket.list_contents()
+        self, other_bucket: "S3BucketComparator"
+    ) -> Dict[str, List[str]]:
+        """Compares bucket contents and returns differences."""
+        primary_contents = self.list_contents()
+        mirror_contents = other_bucket.list_contents()
 
         differences = {
-            f"only_in_primary_bucket_{primary_bucket}": list(
-                primary_bucket_contents - mirror_bucket_contents
+            f"only_in_primary_bucket_{self.bucket_name}": list(
+                primary_contents - mirror_contents
             ),
-            f"only_in_mirror_bucket_{mirror_bucket}": list(
-                mirror_bucket_contents - primary_bucket_contents
+            f"only_in_mirror_bucket_{other_bucket.bucket_name}": list(
+                mirror_contents - primary_contents
             ),
         }
         return differences
 
-    def save_differences_to_json(self, data: Dict, filename: str) -> None:
-        """Save comparison results to a JSON file with size validation."""
-
+    def save_differences_to_json(
+        self, differences: Dict[str, List[str]], filename: str
+    ) -> None:
+        """Saves differences to a JSON file."""
         logging.info(f"Saving differences to {filename}")
         try:
-            # Validate file size before writing
-            estimated_size = len(json.dumps(data, indent=4))
-            if estimated_size > 100 * 1024 * 1024:  # 100MB
-                logging.warning("Large difference file detected")
-
             with open(filename, "w") as json_file:
-                json.dump(data, json_file, indent=4)
+                json.dump(differences, json_file, indent=4)
             logging.info(f"Differences saved to {filename}")
         except IOError as e:
-            logging.error(f"Error saving to JSON file: {e}")
+            logging.error(f"Failed to save JSON file: {e}")
 
 
 def main():
@@ -101,63 +85,38 @@ def main():
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         handlers=[
-            logging.FileHandler("bucket_size.log"),
+            logging.FileHandler("bucket_comparison.log"),
             logging.StreamHandler(sys.stdout),
         ],
     )
-    logging.info("Starting the script")
+    logging.info("Starting bucket comparison script")
+
     try:
         with open("conf.yaml", "r") as f:
             config = yaml.safe_load(f)
-    except FileNotFoundError:
-        logging.error("Configuration file 'conf.yaml' not found.")
-        return
-    except yaml.YAMLError as e:
-        logging.error(f"Error parsing YAML file: {e}")
+    except (FileNotFoundError, yaml.YAMLError) as e:
+        logging.error(f"Error loading config: {e}")
         return
 
-    primary_bucket_config = config.get("primary")
-    if not primary_bucket_config:
-        logging.error("Primary bucket configuration not found in 'conf.yaml'.")
-        return
-
-    required_keys = ["bucket_name", "credentials_file", "profile", "endpoint_url"]
-    for key in required_keys:
-        if key not in primary_bucket_config:
-            logging.error(f"Missing '{key}' in primary bucket configuration.")
+    for key in ["primary", "mirror"]:
+        if key not in config:
+            logging.error(f"Missing '{key}' configuration in conf.yaml")
             return
 
-    mirror_bucket_config = config.get("mirror")
-    if not mirror_bucket_config:
-        logging.error("Mirror bucket configuration not found in 'conf.yaml'.")
-        return
+    def create_comparator(bucket_config: Dict[str, str]) -> S3BucketComparator:
+        return S3BucketComparator(
+            bucket_name=bucket_config["bucket_name"],
+            credentials_file=bucket_config["credentials_file"],
+            profile=bucket_config["profile"],
+            endpoint_url=bucket_config["endpoint_url"],
+        )
 
-    for key in required_keys:
-        if key not in mirror_bucket_config:
-            logging.error(f"Missing '{key}' in mirror bucket configuration.")
-            return
+    primary_bucket = create_comparator(config["primary"])
+    mirror_bucket = create_comparator(config["mirror"])
 
-    primary_bucket = S3BucketComparator(
-        bucket_name=primary_bucket_config["bucket_name"],
-        credentials_file=primary_bucket_config["credentials_file"],
-        profile=primary_bucket_config["profile"],
-        endpoint_url=primary_bucket_config["endpoint_url"],
-    )
-
-    mirror_bucket = S3BucketComparator(
-        bucket_name=mirror_bucket_config["bucket_name"],
-        credentials_file=mirror_bucket_config["credentials_file"],
-        profile=mirror_bucket_config["profile"],
-        endpoint_url=mirror_bucket_config["endpoint_url"],
-    )
-
-    differences = mirror_bucket.compare_buckets(
-        primary_bucket,
-        primary_bucket_config["bucket_name"],
-        mirror_bucket_config["bucket_name"],
-    )
+    differences = primary_bucket.compare_buckets(mirror_bucket)
     primary_bucket.save_differences_to_json(differences, "bucket_differences.json")
-    logging.info("Script execution completed")
+    logging.info("Comparison completed successfully")
 
 
 if __name__ == "__main__":
