@@ -6,7 +6,8 @@ import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
 import { verifyServiceAccountToken } from "./auth/mod.ts";
-import { initializeTaskHandler } from "./backends/tasks.ts";
+import { registerWorkers } from "./workers/mod.ts";
+import { registerSignalHandlers } from "./utils/signal_handlers.ts";
 
 // setup
 await configInit();
@@ -88,14 +89,27 @@ app.onError((err, c) => {
     return errResponse;
   }
 
-  const errMessage = "Something wrong happened in the proxy.";
+  const errMessage = `Something went wrong in the proxy: ${err.message}`;
+  const errResponse = "Something went wrong in the proxy";
   logger.error(errMessage);
   reportToSentry(errMessage);
-  return c.text(errMessage);
+  return c.text(errResponse);
 });
 
-await initializeTaskHandler();
+registerSignalHandlers();
+await registerWorkers();
 
-Deno.serve({ port: globalConfig.port }, app.fetch);
+const controller = new AbortController();
+const { signal } = controller;
+
+try {
+  Deno.serve({ port: globalConfig.port, signal }, app.fetch);
+} catch (error) {
+  if ((error as Error).name === "AbortError") {
+    logger.info("Server shut down gracefully");
+  } else {
+    throw error;
+  }
+}
 
 export default app;

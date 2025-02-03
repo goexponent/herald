@@ -112,7 +112,7 @@ function getUrlFormat(request: Request): URLFormatStyle {
   const domainParts = hostWithoutPort.split(".");
   if (
     domainParts.length >= 3 &&
-    (domainParts[0] !== "s3" && domainParts[0] !== "herald") &&
+    (!domainParts[0].includes("s3") && !domainParts[0].includes("herald")) &&
     domainParts[domainParts.length - 3] !== "www"
   ) {
     return urlFormatStyle.Values.VirtualHosted;
