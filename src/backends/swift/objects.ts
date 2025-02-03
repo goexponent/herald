@@ -104,6 +104,7 @@ export async function getObject(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -249,6 +250,7 @@ export async function listObjects(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -326,6 +328,7 @@ export async function getObjectMeta(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -385,6 +388,7 @@ export async function headObject(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {

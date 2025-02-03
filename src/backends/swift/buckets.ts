@@ -176,6 +176,7 @@ export async function getBucketAcl(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -269,6 +270,7 @@ export async function getBucketVersioning(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -418,6 +420,7 @@ export async function getBucketEncryption(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -498,6 +501,7 @@ export async function headBucket(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -618,6 +622,7 @@ export async function getBucketTagging(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -702,6 +707,7 @@ export async function getBucketPolicy(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {

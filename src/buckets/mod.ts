@@ -41,6 +41,10 @@ export class Bucket {
   get backend() {
     return this._backend;
   }
+
+  get isReplica() {
+    return this.typ == "ReplicaS3Config" || this.typ == "ReplicaSwiftConfig";
+  }
 }
 
 export function initializeBucketStore(config: GlobalConfig): BucketStore {
