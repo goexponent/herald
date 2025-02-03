@@ -1,10 +1,9 @@
-import { S3Config } from "../config/mod.ts";
+import { globalConfig, S3Config } from "../config/mod.ts";
 import { getLogger, reportToSentry } from "./log.ts";
 import { signRequestV4 } from "./signer.ts";
 import { AUTH_HEADER, HOST_HEADER } from "../constants/headers.ts";
-import { HTTPException } from "../types/http-exception.ts";
 import { s3ReqParams } from "../constants/query-params.ts";
-import { createXmlErrorResponse } from "./error.ts";
+import { ReplicaConfig } from "../config/types.ts";
 
 const logger = getLogger(import.meta);
 
@@ -24,6 +23,20 @@ export function getRedirectUrl(originalUrl: string, targetUrl: string): URL {
   redirect.host = destUrl.host;
 
   return redirect;
+}
+
+export function getReplicas(bucketName: string) {
+  const replicas: ReplicaConfig[] = [];
+  for (const replica of globalConfig.replicas) {
+    const replicaBucket = replica.typ === "ReplicaS3Config"
+      ? replica.config.bucket
+      : replica.config.container;
+    if (replicaBucket === bucketName) {
+      replicas.push(replica);
+    }
+  }
+
+  return replicas;
 }
 
 /**
@@ -110,13 +123,13 @@ export async function forwardRequestWithTimeouts(
     return clonedResponse;
   };
 
-  return await retryWithExponentialBackoff(
+  const result = await retryWithExponentialBackoff(
     forwardRequest,
-    config.bucket,
-    5,
     100,
     10000,
   );
+
+  return result;
 }
 
 export function getBodyFromReq(
@@ -135,11 +148,10 @@ function delay(ms: number): Promise<void> {
 // Function to handle exponential backoff retries
 export async function retryWithExponentialBackoff<T>(
   fn: () => Promise<T>,
-  resource: string,
-  retries = 5,
+  retries = 3,
   initialDelay = 100,
   maxDelay = 1000,
-): Promise<T> {
+): Promise<T | Error> {
   let attempt = 0;
   let delayDuration = initialDelay;
   let err: Error = new Error("Unknown error");
@@ -161,10 +173,7 @@ export async function retryWithExponentialBackoff<T>(
     }
   }
 
-  const errResponse = createXmlErrorResponse(err, 502, resource);
-  throw new HTTPException(errResponse.status, {
-    res: errResponse,
-  });
+  return err;
 }
 
 export function areQueryParamsSupported(queryParams: string[]): boolean {

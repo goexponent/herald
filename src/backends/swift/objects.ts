@@ -7,38 +7,29 @@ import {
 } from "../../utils/url.ts";
 import { formatRFC3339Date, toS3XmlContent } from "./utils/mod.ts";
 import { NoSuchBucketException } from "../../constants/errors.ts";
-import {
-  isBucketConfig,
-  SwiftBucketConfig,
-  SwiftConfig,
-} from "../../config/types.ts";
+import { SwiftBucketConfig, SwiftConfig } from "../../config/types.ts";
 import { S3_COPY_SOURCE_HEADER } from "../../constants/headers.ts";
 import { s3Utils } from "../../utils/mod.ts";
-import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
+import { prepareMirrorRequests } from "../mirror.ts";
+import { Bucket } from "../../buckets/mod.ts";
+import { s3Resolver } from "../s3/mod.ts";
+import { swiftResolver } from "./mod.ts";
 const logger = getLogger(import.meta);
 
 export async function putObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response | undefined> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Put Object Request...");
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(400, {
+    return new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
+  const config: SwiftConfig = bucketConfig.config as SwiftConfig;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
@@ -54,7 +45,14 @@ export async function putObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error) {
+    logger.warn(`Put Object Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status !== 201) {
     const errMessage = `Put Object Failed: ${response.statusText}`;
@@ -76,27 +74,18 @@ export async function putObject(
 
 export async function getObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Get Object Request...");
 
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(400, {
+    return new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  // let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
-      // mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
+  const config: SwiftConfig = bucketConfig.config as SwiftConfig;
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
@@ -112,7 +101,28 @@ export async function getObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(`Get Object Failed on Replica: ${replica.name}`);
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get Object Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status !== 200) {
     const errMessage = `Get Object Failed: ${response.statusText}`;
@@ -127,27 +137,19 @@ export async function getObject(
 
 export async function deleteObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response | undefined> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Delete Object Request...");
 
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(400, {
+    return new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
+  const config: SwiftConfig = bucketConfig.config as SwiftConfig;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
@@ -163,7 +165,28 @@ export async function deleteObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(`Delete Object Failed on Replica: ${replica.name}`);
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Delete Object Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status !== 204) {
     const errMessage = `Delete Object Failed: ${response.statusText}`;
@@ -185,24 +208,18 @@ export async function deleteObject(
 
 export async function listObjects(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Get List of Objects Request...");
 
   const { bucket, queryParams: query } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(400, {
+    return new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
-
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
       config,
@@ -229,7 +246,30 @@ export async function listObjects(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Get List of Objects Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get List of Objects Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status === 404) {
     logger.warn(`Get List of Objects Failed: ${response.statusText}`);
@@ -257,8 +297,8 @@ export async function listObjects(
 
 export async function getObjectMeta(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response | undefined> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Get Object Meta Request...");
 
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
@@ -268,13 +308,7 @@ export async function getObjectMeta(
     });
   }
 
-  let config: SwiftConfig;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
-
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
       config,
@@ -289,7 +323,28 @@ export async function getObjectMeta(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(`Get bucket ACL Failed on Replica: ${replica.name}`);
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get Object Meta Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status !== 201) {
     const errMessage = `Get Object Meta Failed: ${response.statusText}`;
@@ -304,24 +359,18 @@ export async function getObjectMeta(
 
 export async function headObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Head Object Request...");
 
   const { bucket, objectKey } = s3Utils.extractRequestInfo(req);
   if (!bucket || !objectKey) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket or object information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
-
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
@@ -333,7 +382,28 @@ export async function headObject(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(`Head object Failed on Replica: ${replica.name}`);
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Head object Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     logger.warn(`Head object Failed: ${response.statusText}`);
@@ -354,26 +424,18 @@ export async function headObject(
 // currently supports copy within the same project
 export async function copyObject(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response> {
+  bucketConfig: Bucket,
+): Promise<Response | Error | HTTPException> {
   logger.info("[Swift backend] Proxying Copy Object Request...");
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(400, {
+    return new HTTPException(400, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
+  const config: SwiftConfig = bucketConfig.config as SwiftConfig;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
@@ -391,7 +453,14 @@ export async function copyObject(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error) {
+    logger.warn(`Copy Object Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status !== 201) {
     const errMessage = `Copy Object Failed: ${response.statusText}`;

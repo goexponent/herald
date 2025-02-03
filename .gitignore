@@ -82,3 +82,5 @@ examples/**/.terraform.lock.hcl
 token
 venv/
 bucket_differences.json
+*.crt
+token

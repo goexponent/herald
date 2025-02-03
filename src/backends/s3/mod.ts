@@ -1,4 +1,3 @@
-import { Context } from "@hono/hono";
 import {
   copyObject,
   deleteObject,
@@ -14,10 +13,10 @@ import {
   routeQueryParamedRequest,
 } from "./buckets.ts";
 import { HTTPException } from "../../types/http-exception.ts";
-import { S3BucketConfig } from "../../config/types.ts";
 import { areQueryParamsSupported } from "../../utils/url.ts";
 import { extractRequestInfo } from "../../utils/s3.ts";
 import { getLogger } from "../../utils/log.ts";
+import { Bucket } from "../../buckets/mod.ts";
 
 const handlers = {
   putObject,
@@ -34,20 +33,20 @@ const handlers = {
 
 const logger = getLogger(import.meta);
 export async function s3Resolver(
-  c: Context,
-  bucketConfig: S3BucketConfig,
-) {
-  const rawRequest = c.req.raw;
-  const { method, objectKey, queryParams } = extractRequestInfo(rawRequest);
+  request: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
+  const { method, objectKey, queryParams } = extractRequestInfo(request);
   const queryParamKeys = Object.keys(queryParams);
 
   logger.debug(`Resolving S3 Handler for Request...`);
   switch (method) {
     case "GET":
       if (objectKey) {
-        return await handlers.getObject(rawRequest, bucketConfig);
-      } else if (queryParams["list-type"]) {
-        return await handlers.listObjects(c, bucketConfig);
+        return await handlers.getObject(request, bucketConfig);
+      }
+      if (queryParams["list-type"]) {
+        return await handlers.listObjects(request, bucketConfig);
       }
 
       if (!areQueryParamsSupported(queryParamKeys)) {
@@ -57,7 +56,7 @@ export async function s3Resolver(
         });
       }
       return await handlers.routeQueryParamedRequest(
-        c,
+        request,
         bucketConfig,
         queryParamKeys,
       );
@@ -67,24 +66,26 @@ export async function s3Resolver(
         message: "Method Not Allowed",
       });
     case "PUT":
-      if (objectKey && c.req.header("x-amz-copy-source") !== undefined) {
-        return await handlers.copyObject(c.req.raw, bucketConfig);
-      } else if (objectKey) {
-        return await handlers.putObject(c.req.raw, bucketConfig);
+      if (objectKey && request.headers.get("x-amz-copy-source") !== undefined) {
+        return await handlers.copyObject(request, bucketConfig);
       }
 
-      return await handlers.createBucket(c.req.raw, bucketConfig);
+      if (objectKey) {
+        return await handlers.putObject(request, bucketConfig);
+      }
+
+      return await handlers.createBucket(request, bucketConfig);
     case "DELETE":
       if (objectKey) {
-        return await handlers.deleteObject(c.req.raw, bucketConfig);
+        return await handlers.deleteObject(request, bucketConfig);
       }
 
-      return await handlers.deleteBucket(c.req.raw, bucketConfig);
+      return await handlers.deleteBucket(request, bucketConfig);
     case "HEAD":
       if (objectKey) {
-        return await handlers.headObject(c.req.raw, bucketConfig);
+        return await handlers.headObject(request, bucketConfig);
       }
-      return await handlers.headBucket(c, bucketConfig);
+      return await handlers.headBucket(request, bucketConfig);
     default:
       logger.critical(`Unsupported Request Method: ${method}`);
       throw new HTTPException(400, { message: "Unsupported Request" });
