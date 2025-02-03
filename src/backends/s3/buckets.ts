@@ -93,6 +93,7 @@ export async function routeQueryParamedRequest(
   let response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -138,6 +139,7 @@ export async function headBucket(
   let response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {

@@ -18,6 +18,7 @@ export async function getObject(
   let response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -58,6 +59,7 @@ export async function listObjects(
   let response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
@@ -213,6 +215,7 @@ export async function headObject(
   let response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
