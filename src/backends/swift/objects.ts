@@ -7,7 +7,7 @@ import {
 } from "../../utils/url.ts";
 import { formatRFC3339Date, toS3XmlContent } from "./utils/mod.ts";
 import { NoSuchBucketException } from "../../constants/errors.ts";
-import { SwiftBucketConfig, SwiftConfig } from "../../config/types.ts";
+import { SwiftConfig } from "../../config/types.ts";
 import { S3_COPY_SOURCE_HEADER } from "../../constants/headers.ts";
 import { s3Utils } from "../../utils/mod.ts";
 import { prepareMirrorRequests } from "../mirror.ts";
@@ -63,7 +63,7 @@ export async function putObject(
     if (mirrorOperation) {
       await prepareMirrorRequests(
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "putObject",
       );
     }
@@ -108,6 +108,10 @@ export async function getObject(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Object Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -167,22 +171,9 @@ export async function deleteObject(
     });
   };
 
-  let response = await retryWithExponentialBackoff(
+  const response = await retryWithExponentialBackoff(
     fetchFunc,
   );
-
-  if (response instanceof Error && bucketConfig.hasReplicas()) {
-    for (const replica of bucketConfig.replicas) {
-      const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
-      if (res instanceof Error) {
-        logger.warn(`Delete Object Failed on Replica: ${replica.name}`);
-        continue;
-      }
-      response = res;
-    }
-  }
 
   if (response instanceof Error) {
     logger.warn(`Delete Object Failed: ${response.message}`);
@@ -198,7 +189,7 @@ export async function deleteObject(
     if (mirrorOperation) {
       await prepareMirrorRequests(
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "deleteObject",
       );
     }
@@ -254,6 +245,10 @@ export async function listObjects(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `List Objects Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -332,6 +327,10 @@ export async function getObjectMeta(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Object Meta Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -392,6 +391,10 @@ export async function headObject(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Head Object Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -475,7 +478,7 @@ export async function copyObject(
     if (mirrorOperation) {
       await prepareMirrorRequests(
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "copyObject",
       );
     }

@@ -1,4 +1,3 @@
-import { SwiftBucketConfig } from "../../config/mod.ts";
 import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { s3Utils } from "../../utils/mod.ts";
@@ -73,7 +72,7 @@ export async function createBucket(
     if (mirrorOperation) {
       await prepareMirrorRequests(
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "createBucket",
       );
     }
@@ -139,7 +138,7 @@ export async function deleteBucket(
     if (mirrorOperation) {
       await prepareMirrorRequests(
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "deleteBucket",
       );
     }
@@ -180,6 +179,8 @@ export async function getBucketAcl(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(`Get Bucket ACL on Primary Bucket: ${bucketConfig.bucketName}`);
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -274,6 +275,10 @@ export async function getBucketVersioning(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Versioning on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -424,6 +429,10 @@ export async function getBucketEncryption(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Encryption on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -505,6 +514,10 @@ export async function headBucket(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Head Bucket Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -626,6 +639,10 @@ export async function getBucketTagging(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Tagging on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
@@ -711,6 +728,10 @@ export async function getBucketPolicy(
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Policy on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(req, replica)
