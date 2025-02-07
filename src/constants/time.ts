@@ -1,0 +1,4 @@
+// in milliseconds
+
+// task queue
+export const SAVE_TASK_STORE_TIMEOUT = 30000; // 30s

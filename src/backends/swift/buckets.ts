@@ -1,4 +1,3 @@
-import { Context } from "@hono/hono";
 import { SwiftBucketConfig } from "../../config/mod.ts";
 import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
 import { HTTPException } from "../../types/http-exception.ts";
@@ -10,9 +9,12 @@ import {
 } from "../../utils/url.ts";
 import { MethodNotAllowedException } from "../../constants/errors.ts";
 import { XML_CONTENT_TYPE } from "../../constants/query-params.ts";
-import { isBucketConfig, SwiftConfig } from "../../config/types.ts";
-import { hasReplica, prepareMirrorRequests } from "../mirror.ts";
+import { SwiftConfig } from "../../config/types.ts";
+import { prepareMirrorRequests } from "../mirror.ts";
 import { HTTP_STATUS_CODES } from "../../constants/http_status_codes.ts";
+import { Bucket } from "../../buckets/mod.ts";
+import { s3Resolver } from "../s3/mod.ts";
+import { swiftResolver } from "./mod.ts";
 
 const logger = getLogger(import.meta);
 
@@ -25,27 +27,19 @@ function createBucketSuccessResponse(bucketName: string): string {
 
 export async function createBucket(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response | undefined> {
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Proxying Create Bucket Request...");
 
   const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
+  const config: SwiftConfig = bucketConfig.config as SwiftConfig;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
@@ -61,7 +55,14 @@ export async function createBucket(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error) {
+    logger.warn(`Create Bucket Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     const errMesage = `Create bucket Failed: ${response.statusText}`;
@@ -92,27 +93,19 @@ export async function createBucket(
 
 export async function deleteBucket(
   req: Request,
-  bucketConfig: SwiftConfig | SwiftBucketConfig,
-): Promise<Response | undefined> {
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Proxying Delete Bucket Request...");
 
   const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
-  let config: SwiftConfig;
-  let mirrorOperation = false;
-  if (isBucketConfig(bucketConfig)) {
-    config = bucketConfig.config;
-    if (hasReplica(bucketConfig)) {
-      mirrorOperation = true;
-    }
-  } else {
-    config = bucketConfig as SwiftConfig;
-  }
+  const config: SwiftConfig = bucketConfig.config as SwiftConfig;
+  const mirrorOperation = bucketConfig.hasReplicas();
 
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
@@ -128,7 +121,14 @@ export async function deleteBucket(
       body: getBodyFromReq(req),
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+  const response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error) {
+    logger.warn(`Delete Bucket Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status !== 204) {
     const errMessage = `Delete bucket Failed: ${response.statusText}`;
@@ -149,20 +149,21 @@ export async function deleteBucket(
 }
 
 export async function getBucketAcl(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response> {
+  req: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Handling Get Bucket ACL Request...");
 
-  const { bucket } = s3Utils.extractRequestInfo(c.req.raw);
+  const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -172,12 +173,33 @@ export async function getBucketAcl(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(`Get bucket ACL Failed on Replica: ${replica.name}`);
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get bucket ACL Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     const errMessage = `Get bucket ACL Failed: ${response.statusText}`;
     logger.warn(errMessage);
-    throw new HTTPException(response.status, { message: response.statusText });
+    return new HTTPException(response.status, { message: response.statusText });
   }
 
   // Extract relevant headers from Swift response
@@ -220,20 +242,21 @@ export async function getBucketAcl(
 }
 
 export async function getBucketVersioning(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response> {
+  req: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Handling Get Bucket Versioning Request...");
 
-  const { bucket } = s3Utils.extractRequestInfo(c.req.raw);
+  const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -243,11 +266,34 @@ export async function getBucketVersioning(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Get bucket versioning Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get bucket versioning Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     logger.warn(`Get bucket versioning Failed: ${response.statusText}`);
-    throw new HTTPException(response.status, { message: response.statusText });
+    return new HTTPException(response.status, { message: response.statusText });
   }
 
   // Swift doesn't support bucket versioning like S3, so we return an empty configuration
@@ -262,9 +308,9 @@ export async function getBucketVersioning(
 }
 
 export function getBucketAccelerate(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Accelerate Request...");
 
   // Swift doesn't have an equivalent to S3's transfer acceleration
@@ -280,9 +326,9 @@ export function getBucketAccelerate(
 }
 
 export function getBucketLogging(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Logging Request...");
 
   // Swift doesn't have built-in bucket logging like S3
@@ -298,9 +344,9 @@ export function getBucketLogging(
 }
 
 export function getBucketLifecycle(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Lifecycle Request...");
 
   // Swift doesn't have a direct equivalent to S3's lifecycle policies
@@ -316,9 +362,9 @@ export function getBucketLifecycle(
 }
 
 export function getBucketWebsite(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Website Request...");
 
   // Swift doesn't have built-in static website hosting like S3
@@ -334,9 +380,9 @@ export function getBucketWebsite(
 }
 
 export function getBucketPayment(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Payment Request...");
 
   // Swift doesn't have a concept of requester pays like S3
@@ -345,20 +391,21 @@ export function getBucketPayment(
 }
 
 export async function getBucketEncryption(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response> {
+  req: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Handling Get Bucket Encryption Request...");
 
-  const { bucket } = s3Utils.extractRequestInfo(c.req.raw);
+  const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -368,11 +415,34 @@ export async function getBucketEncryption(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Get bucket encryption Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get bucket encryption Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     logger.warn(`Get bucket encryption Failed: ${response.statusText}`);
-    throw new HTTPException(response.status, { message: response.statusText });
+    return new HTTPException(response.status, { message: response.statusText });
   }
 
   // Check if Swift container has encryption enabled
@@ -401,20 +471,21 @@ export async function getBucketEncryption(
 }
 
 export async function headBucket(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response> {
+  req: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Proxying Head Bucket Request...");
 
-  const { bucket } = s3Utils.extractRequestInfo(c.req.raw);
+  const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -424,11 +495,34 @@ export async function headBucket(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Head bucket Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Head bucket Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     logger.warn(`Head bucket Failed: ${response.statusText}`);
-    throw new HTTPException(response.status, { message: response.statusText });
+    return new HTTPException(response.status, { message: response.statusText });
   }
 
   logger.info(`Head bucket Successful: ${response.statusText}`);
@@ -443,9 +537,9 @@ export async function headBucket(
 }
 
 export function getBucketCors(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket CORS Request...");
 
   // Swift doesn't have a direct equivalent to S3's CORS configuration
@@ -461,9 +555,9 @@ export function getBucketCors(
 }
 
 export function getBucketReplication(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Replication Request...");
 
   // Swift doesn't have a built-in replication feature like S3
@@ -479,9 +573,9 @@ export function getBucketReplication(
 }
 
 export function getBucketObjectLock(
-  _c: Context,
-  _bucketConfig: SwiftBucketConfig,
-): Response {
+  _req: Request,
+  _bucketConfig: Bucket,
+): Response | Error {
   logger.info("[Swift backend] Handling Get Bucket Object Lock Request...");
 
   // Swift doesn't have an equivalent to S3's Object Lock feature
@@ -497,20 +591,21 @@ export function getBucketObjectLock(
 }
 
 export async function getBucketTagging(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response> {
+  req: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Handling Get Bucket Tagging Request...");
 
-  const { bucket } = s3Utils.extractRequestInfo(c.req.raw);
+  const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -520,11 +615,34 @@ export async function getBucketTagging(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Get bucket tagging Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get bucket tagging Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     logger.warn(`Get bucket tagging Failed: ${response.statusText}`);
-    throw new HTTPException(response.status, { message: response.statusText });
+    return new HTTPException(response.status, { message: response.statusText });
   }
 
   // Swift doesn't have a direct equivalent to S3's tagging
@@ -557,20 +675,21 @@ export async function getBucketTagging(
 }
 
 export async function getBucketPolicy(
-  c: Context,
-  bucketConfig: SwiftBucketConfig,
-): Promise<Response> {
+  req: Request,
+  bucketConfig: Bucket,
+): Promise<Response | Error> {
   logger.info("[Swift backend] Handling Get Bucket Policy Request...");
 
-  const { bucket } = s3Utils.extractRequestInfo(c.req.raw);
+  const { bucket } = s3Utils.extractRequestInfo(req);
   if (!bucket) {
-    throw new HTTPException(404, {
+    return new HTTPException(404, {
       message: "Bucket information missing from the request",
     });
   }
 
+  const config = bucketConfig.config as SwiftConfig;
   const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(bucketConfig.config);
+    await getAuthTokenWithTimeouts(config);
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -580,11 +699,34 @@ export async function getBucketPolicy(
       headers: headers,
     });
   };
-  const response = await retryWithExponentialBackoff(fetchFunc, bucket);
+
+  let response = await retryWithExponentialBackoff(
+    fetchFunc,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(req, replica)
+        : await swiftResolver(req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Get bucket policy Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Get bucket policy Failed: ${response.message}`);
+    return response;
+  }
 
   if (response.status >= 300) {
     logger.warn(`Get bucket policy Failed: ${response.statusText}`);
-    throw new HTTPException(response.status, { message: response.statusText });
+    return new HTTPException(response.status, { message: response.statusText });
   }
 
   // Swift doesn't have a direct equivalent to S3's bucket policies

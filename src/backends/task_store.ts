@@ -11,6 +11,21 @@ import { S3Config } from "../config/mod.ts";
 
 const logger = getLogger(import.meta);
 
+/**
+ * The TaskStore class is responsible for managing tasks and their states,
+ * including synchronization with a remote storage (S3) and local storage (Deno.Kv).
+ * It follows a singleton pattern to ensure only one instance is used throughout the application.
+ *
+ * @remarks
+ * The TaskStore class provides methods to serialize and deserialize the task queue and locks,
+ * upload and fetch data from S3, and synchronize the local state with the remote storage.
+ *
+ * @example
+ * ```typescript
+ * const remoteStorageConfig: S3Config = { /* S3 configuration * / };
+ * const taskStore = await TaskStore.getInstance(remoteStorageConfig);
+ * ```
+ */
 export class TaskStore {
   private static instance: Promise<TaskStore> | null = null;
 
@@ -205,6 +220,12 @@ export class TaskStore {
     return locks;
   }
 
+  /**
+   * Synchronizes the current task queue state to the remote server.
+   * This method ensures that both the locks and the queue are saved to the remote server.
+   *
+   * @returns {Promise<void>} A promise that resolves when the synchronization is complete.
+   */
   async syncToRemote() {
     await this.#saveLocksToRemote();
     await this.#saveQueueToRemote();
