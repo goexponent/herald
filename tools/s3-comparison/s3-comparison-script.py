@@ -50,6 +50,13 @@ class S3BucketComparator:
         output = self.run_command(command)
         return set(output.splitlines()) if output else set()
 
+    def get_size_count(self):
+        """Get size and count of objects in the bucket."""
+        logging.info(f"Getting size and count of objects in {self.bucket_name}")
+        command = f"du s3://{self.bucket_name}/*"
+        output = self.run_command(command)
+        return output.split(":")[0]
+
     def compare_buckets(
         self, other_bucket: "S3BucketComparator"
     ) -> Dict[str, List[str]]:
@@ -64,6 +71,10 @@ class S3BucketComparator:
             f"only_in_mirror_bucket_{other_bucket.bucket_name}": list(
                 mirror_contents - primary_contents
             ),
+            "stat": {
+                f"primary_bucket_{self.bucket_name}": self.get_size_count(),
+                f"mirror_bucket_{other_bucket.bucket_name}": other_bucket.get_size_count(),
+            },
         }
         return differences
 
