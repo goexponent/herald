@@ -103,7 +103,7 @@ app.onError((err, c) => {
 });
 
 registerSignalHandlers(ctx);
-await registerWorkers();
+await registerWorkers(ctx);
 
 const controller = new AbortController();
 const { signal } = controller;
