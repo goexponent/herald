@@ -15,6 +15,7 @@ import { HTTP_STATUS_CODES } from "../../constants/http_status_codes.ts";
 import { Bucket } from "../../buckets/mod.ts";
 import { s3Resolver } from "../s3/mod.ts";
 import { swiftResolver } from "./mod.ts";
+import { HeraldContext } from "../../types/mod.ts";
 
 const logger = getLogger(import.meta);
 
@@ -26,6 +27,7 @@ function createBucketSuccessResponse(bucketName: string): string {
 }
 
 export async function createBucket(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -72,6 +74,7 @@ export async function createBucket(
     logger.info(`Create bucket Successful: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as SwiftBucketConfig,
         "createBucket",
@@ -92,6 +95,7 @@ export async function createBucket(
 }
 
 export async function deleteBucket(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -138,6 +142,7 @@ export async function deleteBucket(
     logger.info(`Delete bucket Successful: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as SwiftBucketConfig,
         "deleteBucket",
@@ -149,6 +154,7 @@ export async function deleteBucket(
 }
 
 export async function getBucketAcl(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -181,8 +187,8 @@ export async function getBucketAcl(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(`Get bucket ACL Failed on Replica: ${replica.name}`);
         continue;
@@ -242,6 +248,7 @@ export async function getBucketAcl(
 }
 
 export async function getBucketVersioning(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -274,8 +281,8 @@ export async function getBucketVersioning(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(
           `Get bucket versioning Failed on Replica: ${replica.name}`,
@@ -308,6 +315,7 @@ export async function getBucketVersioning(
 }
 
 export function getBucketAccelerate(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -326,6 +334,7 @@ export function getBucketAccelerate(
 }
 
 export function getBucketLogging(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -344,6 +353,7 @@ export function getBucketLogging(
 }
 
 export function getBucketLifecycle(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -362,6 +372,7 @@ export function getBucketLifecycle(
 }
 
 export function getBucketWebsite(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -380,6 +391,7 @@ export function getBucketWebsite(
 }
 
 export function getBucketPayment(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -391,6 +403,7 @@ export function getBucketPayment(
 }
 
 export async function getBucketEncryption(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -423,8 +436,8 @@ export async function getBucketEncryption(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(
           `Get bucket encryption Failed on Replica: ${replica.name}`,
@@ -471,6 +484,7 @@ export async function getBucketEncryption(
 }
 
 export async function headBucket(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -503,8 +517,8 @@ export async function headBucket(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(
           `Head bucket Failed on Replica: ${replica.name}`,
@@ -537,6 +551,7 @@ export async function headBucket(
 }
 
 export function getBucketCors(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -555,6 +570,7 @@ export function getBucketCors(
 }
 
 export function getBucketReplication(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -573,6 +589,7 @@ export function getBucketReplication(
 }
 
 export function getBucketObjectLock(
+  _ctx: HeraldContext,
   _req: Request,
   _bucketConfig: Bucket,
 ): Response | Error {
@@ -591,6 +608,7 @@ export function getBucketObjectLock(
 }
 
 export async function getBucketTagging(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -623,8 +641,8 @@ export async function getBucketTagging(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(
           `Get bucket tagging Failed on Replica: ${replica.name}`,
@@ -675,6 +693,7 @@ export async function getBucketTagging(
 }
 
 export async function getBucketPolicy(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -707,8 +726,8 @@ export async function getBucketPolicy(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(
           `Get bucket policy Failed on Replica: ${replica.name}`,

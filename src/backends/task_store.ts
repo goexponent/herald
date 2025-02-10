@@ -6,8 +6,8 @@ import {
 } from "aws-sdk/client-s3-esm";
 import { getLogger, reportToSentry } from "../utils/log.ts";
 import { MirrorTask } from "./types.ts";
-import { loadConfig } from "../config/loader.ts";
 import { S3Config } from "../config/mod.ts";
+import { GlobalConfig } from "../config/types.ts";
 
 const logger = getLogger(import.meta);
 
@@ -34,10 +34,10 @@ export class TaskStore {
   ): Promise<TaskStore> {
     async function inner() {
       const s3 = new S3Client(remoteStorageConfig);
-      const queue = await Deno.openKv();
+      const taskQueue = await Deno.openKv();
       const lockedStorages = new Map<string, number>();
 
-      const newInstance = new TaskStore(s3, queue, lockedStorages);
+      const newInstance = new TaskStore(s3, taskQueue, lockedStorages);
       await newInstance.#syncFromRemote();
 
       return newInstance;
@@ -262,7 +262,7 @@ export class TaskStore {
     await this.#syncLockFromRemote();
   }
 
-  get queue() {
+  get taskQueue() {
     return this._queue;
   }
 
@@ -271,9 +271,12 @@ export class TaskStore {
   }
 }
 
-// Use this to get the single instance
-const config = await loadConfig();
-const taskStore = await TaskStore.getInstance(config.task_store_backend);
-export const kv = taskStore.queue;
-export const lockedStorages = taskStore.lockedStorages;
-export default taskStore;
+export const initTaskStore = async (config: GlobalConfig) => {
+  const taskStore = await TaskStore.getInstance(config.task_store_backend);
+  // update the remote task queue store every 5 minutes
+  setInterval(async () => {
+    await taskStore.syncToRemote();
+  }, 5 * 60 * 1000); // 5 minutes in milliseconds
+
+  return taskStore;
+};

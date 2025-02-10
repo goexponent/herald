@@ -29,6 +29,7 @@ import { HTTPException } from "../../types/http-exception.ts";
 import { getLogger } from "../../utils/log.ts";
 import { s3Utils } from "../../utils/mod.ts";
 import { Bucket } from "../../buckets/mod.ts";
+import { HeraldContext } from "../../types/mod.ts";
 
 const handlers = {
   putObject,
@@ -45,6 +46,7 @@ const handlers = {
 
 const logger = getLogger(import.meta);
 export async function swiftResolver(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -57,31 +59,31 @@ export async function swiftResolver(
   if (queryParam) {
     switch (queryParam) {
       case "policy":
-        return await getBucketPolicy(req, bucketConfig);
+        return await getBucketPolicy(ctx, req, bucketConfig);
       case "acl":
-        return await getBucketAcl(req, bucketConfig);
+        return await getBucketAcl(ctx, req, bucketConfig);
       case "versioning":
-        return await getBucketVersioning(req, bucketConfig);
+        return await getBucketVersioning(ctx, req, bucketConfig);
       case "accelerate":
-        return getBucketAccelerate(req, bucketConfig);
+        return getBucketAccelerate(ctx, req, bucketConfig);
       case "logging":
-        return getBucketLogging(req, bucketConfig);
+        return getBucketLogging(ctx, req, bucketConfig);
       case "lifecycle":
-        return getBucketLifecycle(req, bucketConfig);
+        return getBucketLifecycle(ctx, req, bucketConfig);
       case "website":
-        return getBucketWebsite(req, bucketConfig);
+        return getBucketWebsite(ctx, req, bucketConfig);
       case "requestPayment":
-        return getBucketPayment(req, bucketConfig);
+        return getBucketPayment(ctx, req, bucketConfig);
       case "encryption":
-        return await getBucketEncryption(req, bucketConfig);
+        return await getBucketEncryption(ctx, req, bucketConfig);
       case "cors":
-        return getBucketCors(req, bucketConfig);
+        return getBucketCors(ctx, req, bucketConfig);
       case "replication":
-        return getBucketReplication(req, bucketConfig);
+        return getBucketReplication(ctx, req, bucketConfig);
       case "object-lock":
-        return getBucketObjectLock(req, bucketConfig);
+        return getBucketObjectLock(ctx, req, bucketConfig);
       case "tagging":
-        return await getBucketTagging(req, bucketConfig);
+        return await getBucketTagging(ctx, req, bucketConfig);
       // ignore these as they will be handled as regular request below
       case "x-id":
       case "list-type":
@@ -98,33 +100,33 @@ export async function swiftResolver(
   switch (method) {
     case "GET":
       if (objectKey) {
-        return await handlers.getObject(req, bucketConfig);
+        return await handlers.getObject(ctx, req, bucketConfig);
       }
 
-      return await handlers.listObjects(req, bucketConfig);
+      return await handlers.listObjects(ctx, req, bucketConfig);
     case "POST":
       break;
     case "PUT":
       if (objectKey && req.headers.get("x-amz-copy-source") !== undefined) {
-        return await handlers.copyObject(req, bucketConfig);
+        return await handlers.copyObject(ctx, req, bucketConfig);
       }
       if (objectKey) {
-        return await handlers.putObject(req, bucketConfig);
+        return await handlers.putObject(ctx, req, bucketConfig);
       }
 
-      return await handlers.createBucket(req, bucketConfig);
+      return await handlers.createBucket(ctx, req, bucketConfig);
     case "DELETE":
       if (objectKey) {
-        return await handlers.deleteObject(req, bucketConfig);
+        return await handlers.deleteObject(ctx, req, bucketConfig);
       }
 
-      return await handlers.deleteBucket(req, bucketConfig);
+      return await handlers.deleteBucket(ctx, req, bucketConfig);
     case "HEAD":
       if (objectKey) {
-        return await handlers.headObject(req, bucketConfig);
+        return await handlers.headObject(ctx, req, bucketConfig);
       }
 
-      return await handlers.headBucket(req, bucketConfig);
+      return await handlers.headBucket(ctx, req, bucketConfig);
     default:
       logger.critical(`Unsupported Request: ${method}`);
       return new HTTPException(400, { message: "Unsupported Request" });

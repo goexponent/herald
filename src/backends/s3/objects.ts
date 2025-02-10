@@ -6,10 +6,12 @@ import { prepareMirrorRequests } from "../mirror.ts";
 import { Bucket } from "../../buckets/mod.ts";
 import { swiftResolver } from "../swift/mod.ts";
 import { s3Resolver } from "./mod.ts";
+import { HeraldContext } from "../../types/mod.ts";
 
 const logger = getLogger(import.meta);
 
 export async function getObject(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -23,8 +25,8 @@ export async function getObject(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(`Get Object Failed on Replica: ${replica.name}`);
         continue;
@@ -50,6 +52,7 @@ export async function getObject(
 }
 
 export async function listObjects(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -63,8 +66,8 @@ export async function listObjects(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(`List Objects Failed on Replica: ${replica.name}`);
         continue;
@@ -90,6 +93,7 @@ export async function listObjects(
 }
 
 export async function putObject(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -116,6 +120,7 @@ export async function putObject(
     logger.info(`Put Object Successful: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as S3BucketConfig,
         "putObject",
@@ -127,6 +132,7 @@ export async function putObject(
 }
 
 export async function deleteObject(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -153,6 +159,7 @@ export async function deleteObject(
     logger.info(`Delete Object Successfull: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as S3BucketConfig,
         "deleteObject",
@@ -164,6 +171,7 @@ export async function deleteObject(
 }
 
 export async function copyObject(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -190,6 +198,7 @@ export async function copyObject(
     logger.info(`Copy Object Successfull: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as S3BucketConfig,
         "copyObject",
@@ -205,6 +214,7 @@ export function getObjectMeta(c: Context) {
 }
 
 export async function headObject(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -218,8 +228,8 @@ export async function headObject(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(`Head Object Failed on Replica: ${replica.name}`);
         continue;

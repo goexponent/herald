@@ -1,7 +1,7 @@
 import { globalConfig } from "../config/mod.ts";
+import { HeraldContext } from "../types/mod.ts";
 import { getLogger } from "../utils/log.ts";
 import { getBucketFromTask } from "./mirror.ts";
-import { kv } from "./task_store.ts";
 import { MirrorTask } from "./types.ts";
 
 const logger = getLogger(import.meta);
@@ -45,7 +45,9 @@ async function setupWorkers() {
 
 let workers: Map<string, Worker>;
 
-export function taskHandler() {
+export function taskHandler(ctx: HeraldContext) {
+  const taskStore = ctx.taskStore;
+  const kv = taskStore.taskQueue;
   kv.listenQueue(async (task: MirrorTask) => {
     logger.info(`Dequeued task: ${task.command}`);
 
@@ -109,7 +111,7 @@ export function taskHandler() {
   });
 }
 
-export async function initializeTaskHandler() {
+export async function initializeTaskHandler(ctx: HeraldContext) {
   workers = await setupWorkers();
-  taskHandler();
+  taskHandler(ctx);
 }
