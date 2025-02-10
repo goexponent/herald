@@ -125,13 +125,15 @@ export async function getAuthTokenWithTimeouts(config: SwiftConfig): Promise<{
     return { storageUrl, token };
   };
 
-  return await retryWithExponentialBackoff(
+  const res = await retryWithExponentialBackoff(
     getAuthToken,
-    config.container,
-    5,
-    100,
-    1000,
   );
+
+  if (res instanceof Error) {
+    throw res;
+  }
+
+  return res;
 }
 
 export function getSwiftRequestHeaders(authToken: string): Headers {

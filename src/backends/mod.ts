@@ -1,3 +1,4 @@
+import { HeraldContext } from "./../types/mod.ts";
 import { Context } from "@hono/hono";
 import { getBucket } from "../config/loader.ts";
 import { HTTPException } from "../types/http-exception.ts";
@@ -10,7 +11,11 @@ import { hasBucketAccess } from "../auth/mod.ts";
 
 const logger = getLogger(import.meta);
 
-export async function resolveHandler(c: Context, serviceAccountName: string) {
+export async function resolveHandler(
+  ctx: HeraldContext,
+  c: Context,
+  serviceAccountName: string,
+) {
   logger.debug("Resolving Handler for Request...");
   const reqInfo = extractRequestInfo(c.req.raw);
   const { bucket: bucketName } = reqInfo;
@@ -45,8 +50,8 @@ export async function resolveHandler(c: Context, serviceAccountName: string) {
 
   const protocol = bucketBackendDef.protocol;
   const response = protocol === "s3"
-    ? await s3Resolver(c.req.raw, bucket)
-    : await swiftResolver(c.req.raw, bucket);
+    ? await s3Resolver(ctx, c.req.raw, bucket)
+    : await swiftResolver(ctx, c.req.raw, bucket);
 
   if (response instanceof Error) {
     const httpException = response instanceof Error

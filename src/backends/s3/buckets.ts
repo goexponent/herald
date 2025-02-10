@@ -5,10 +5,12 @@ import { prepareMirrorRequests } from "../mirror.ts";
 import { Bucket } from "../../buckets/mod.ts";
 import { s3Resolver } from "./mod.ts";
 import { swiftResolver } from "../swift/mod.ts";
+import { HeraldContext } from "../../types/mod.ts";
 
 const logger = getLogger(import.meta);
 
 export async function createBucket(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -35,6 +37,7 @@ export async function createBucket(
     logger.info(`Create Bucket Successful: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as S3BucketConfig,
         "createBucket",
@@ -46,6 +49,7 @@ export async function createBucket(
 }
 
 export async function deleteBucket(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
@@ -72,6 +76,7 @@ export async function deleteBucket(
     logger.info(`Delete Bucket Successful: ${response.statusText}`);
     if (mirrorOperation) {
       await prepareMirrorRequests(
+        ctx,
         req,
         bucketConfig as S3BucketConfig,
         "deleteBucket",
@@ -83,6 +88,7 @@ export async function deleteBucket(
 }
 
 export async function routeQueryParamedRequest(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
   queryParams: string[],
@@ -98,8 +104,8 @@ export async function routeQueryParamedRequest(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(
           `${formatParams} Operation Failed on Replica: ${replica.name}`,
@@ -130,6 +136,7 @@ export async function routeQueryParamedRequest(
 }
 
 export async function headBucket(
+  ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -143,8 +150,8 @@ export async function headBucket(
   if (response instanceof Error && bucketConfig.hasReplicas()) {
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(req, replica)
-        : await swiftResolver(req, replica);
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
       if (res instanceof Error) {
         logger.warn(`Head Bucket Failed on Replica: ${replica.name}`);
         continue;

@@ -1,8 +1,9 @@
-import taskStore from "../backends/task_store.ts";
 import { SAVE_TASK_STORE_TIMEOUT } from "../constants/time.ts";
+import { HeraldContext } from "../types/mod.ts";
 import { getLogger } from "./log.ts";
 
-async function handleTermSignal() {
+async function handleTermSignal(ctx: HeraldContext) {
+  const taskStore = ctx.taskStore;
   const logger = getLogger(import.meta);
   logger.info(
     "Received TERM signal. Clearing resources, saving state, and exiting gracefully...",
@@ -30,6 +31,6 @@ async function handleTermSignal() {
   }
 }
 
-export function registerSignalHandlers() {
-  Deno.addSignalListener("SIGTERM", handleTermSignal);
+export function registerSignalHandlers(ctx: HeraldContext) {
+  Deno.addSignalListener("SIGTERM", () => handleTermSignal(ctx));
 }
