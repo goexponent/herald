@@ -31,10 +31,14 @@ export async function putObject(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -87,10 +91,14 @@ export async function getObject(
 
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -156,10 +164,14 @@ export async function deleteObject(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -212,10 +224,14 @@ export async function listObjects(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
 
   const params = new URLSearchParams();
@@ -306,10 +322,14 @@ export async function getObjectMeta(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -373,8 +393,14 @@ export async function headObject(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${objectKey}`;
 
@@ -444,10 +470,14 @@ export async function copyObject(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const copySource = `/${bucket}/${object}`;
   headers.set(S3_COPY_SOURCE_HEADER, copySource);

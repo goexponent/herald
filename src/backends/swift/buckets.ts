@@ -40,10 +40,14 @@ export async function createBucket(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -106,10 +110,14 @@ export async function deleteBucket(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -161,8 +169,14 @@ export async function getBucketAcl(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -257,8 +271,14 @@ export async function getBucketVersioning(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -411,8 +431,14 @@ export async function getBucketEncryption(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -496,8 +522,14 @@ export async function headBucket(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -621,8 +653,14 @@ export async function getBucketTagging(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -710,8 +748,14 @@ export async function getBucketPolicy(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
