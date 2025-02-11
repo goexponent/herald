@@ -17,6 +17,7 @@ import { areQueryParamsSupported } from "../../utils/url.ts";
 import { extractRequestInfo } from "../../utils/s3.ts";
 import { getLogger } from "../../utils/log.ts";
 import { Bucket } from "../../buckets/mod.ts";
+import { HeraldContext } from "../../types/mod.ts";
 
 const handlers = {
   putObject,
@@ -33,6 +34,7 @@ const handlers = {
 
 const logger = getLogger(import.meta);
 export async function s3Resolver(
+  ctx: HeraldContext,
   request: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error> {
@@ -43,10 +45,10 @@ export async function s3Resolver(
   switch (method) {
     case "GET":
       if (objectKey) {
-        return await handlers.getObject(request, bucketConfig);
+        return await handlers.getObject(ctx, request, bucketConfig);
       }
       if (queryParams["list-type"]) {
-        return await handlers.listObjects(request, bucketConfig);
+        return await handlers.listObjects(ctx, request, bucketConfig);
       }
 
       if (!areQueryParamsSupported(queryParamKeys)) {
@@ -56,6 +58,7 @@ export async function s3Resolver(
         });
       }
       return await handlers.routeQueryParamedRequest(
+        ctx,
         request,
         bucketConfig,
         queryParamKeys,
@@ -67,25 +70,25 @@ export async function s3Resolver(
       });
     case "PUT":
       if (objectKey && request.headers.get("x-amz-copy-source") !== undefined) {
-        return await handlers.copyObject(request, bucketConfig);
+        return await handlers.copyObject(ctx, request, bucketConfig);
       }
 
       if (objectKey) {
-        return await handlers.putObject(request, bucketConfig);
+        return await handlers.putObject(ctx, request, bucketConfig);
       }
 
-      return await handlers.createBucket(request, bucketConfig);
+      return await handlers.createBucket(ctx, request, bucketConfig);
     case "DELETE":
       if (objectKey) {
-        return await handlers.deleteObject(request, bucketConfig);
+        return await handlers.deleteObject(ctx, request, bucketConfig);
       }
 
-      return await handlers.deleteBucket(request, bucketConfig);
+      return await handlers.deleteBucket(ctx, request, bucketConfig);
     case "HEAD":
       if (objectKey) {
-        return await handlers.headObject(request, bucketConfig);
+        return await handlers.headObject(ctx, request, bucketConfig);
       }
-      return await handlers.headBucket(request, bucketConfig);
+      return await handlers.headBucket(ctx, request, bucketConfig);
     default:
       logger.critical(`Unsupported Request Method: ${method}`);
       throw new HTTPException(400, { message: "Unsupported Request" });

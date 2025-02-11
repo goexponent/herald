@@ -8,6 +8,8 @@ import * as Sentry from "sentry";
 import { verifyServiceAccountToken } from "./auth/mod.ts";
 import { registerWorkers } from "./workers/mod.ts";
 import { registerSignalHandlers } from "./utils/signal_handlers.ts";
+import { HeraldContext } from "./types/mod.ts";
+import { initTaskStore } from "./backends/task_store.ts";
 
 // setup
 await configInit();
@@ -37,6 +39,10 @@ self.addEventListener("error", (event: ErrorEvent) => {
 self.addEventListener("unhandledrejection", (event: PromiseRejectionEvent) => {
   Sentry.captureException(event.reason);
 });
+
+const ctx: HeraldContext = {
+  taskStore: await initTaskStore(globalConfig),
+};
 
 const app = new Hono();
 const logger = getLogger(import.meta);
@@ -70,7 +76,7 @@ app.all("/*", async (c) => {
     token,
   );
 
-  const response = await resolveHandler(c, serviceAccountName);
+  const response = await resolveHandler(ctx, c, serviceAccountName);
   return response;
 });
 
@@ -96,8 +102,8 @@ app.onError((err, c) => {
   return c.text(errResponse);
 });
 
-registerSignalHandlers();
-await registerWorkers();
+registerSignalHandlers(ctx);
+await registerWorkers(ctx);
 
 const controller = new AbortController();
 const { signal } = controller;
