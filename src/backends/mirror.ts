@@ -18,6 +18,7 @@ import { S3_COPY_SOURCE_HEADER } from "../constants/headers.ts";
 import { MirrorableCommands, MirrorTask } from "./types.ts";
 import { deserializeToRequest, serializeRequest } from "../utils/url.ts";
 import { bucketStore, globalConfig } from "../config/mod.ts";
+import { TASK_QUEUE_DB } from "../constants/message.ts";
 
 const logger = getLogger(import.meta);
 
@@ -36,7 +37,8 @@ function getStorageKey(config: S3Config | SwiftConfig) {
 }
 
 export async function enqueueMirrorTask(ctx: HeraldContext, task: MirrorTask) {
-  const kv = ctx.taskStore.taskQueue;
+  const bucket = getBucketFromTask(task);
+  const kv = await Deno.openKv(`${bucket}_${TASK_QUEUE_DB}`);
   const lockedStorages = ctx.taskStore.lockedStorages;
   const nonce = crypto.randomUUID(); // Unique identifier for the task
   task.nonce = nonce;
@@ -48,6 +50,7 @@ export async function enqueueMirrorTask(ctx: HeraldContext, task: MirrorTask) {
   const storageKey = getStorageKey(task.backupBucketConfig.config);
   const currentCount = lockedStorages.get(storageKey) || 0;
   lockedStorages.set(storageKey, currentCount + 1);
+
   await kv.enqueue(task);
   logger.debug(
     `Task enqueued: ${task.command} for primary: ${task.mainBucketConfig.typ} to replica: ${task.backupBucketConfig.typ}`,
@@ -83,6 +86,9 @@ export async function prepareMirrorRequests(
       command: command,
       originalRequest: serializeRequest(req),
       nonce: "",
+      bucket: bucketConfig.typ === "S3BucketConfig"
+        ? bucketConfig.config.bucket
+        : bucketConfig.config.container,
     };
     await enqueueMirrorTask(ctx, task);
   }
