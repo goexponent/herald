@@ -285,7 +285,7 @@ export async function mirrorDeleteObject(
   originalRequest: Request,
 ): Promise<void> {
   const primaryBucket = bucketStore.buckets.find((bucket) =>
-    bucket.name === replica.name
+    bucket.bucketName === replica.bucketName
   )!;
   switch (replica.typ) {
     case "ReplicaS3Config": {
@@ -326,7 +326,7 @@ export async function mirrorCopyObject(
   originalRequest: Request,
 ): Promise<void> {
   const primaryBucket = bucketStore.buckets.find((bucket) =>
-    bucket.name === replica.name
+    bucket.bucketName === replica.bucketName
   )!;
   switch (replica.typ) {
     case "ReplicaS3Config": {
@@ -384,7 +384,7 @@ export async function mirrorDeleteBucket(
   replica: Bucket,
 ) {
   const primaryBucket = bucketStore.buckets.find((bucket) =>
-    bucket.name === replica.name
+    bucket.bucketName === replica.bucketName
   )!;
   if (replica.typ === "ReplicaS3Config") {
     const config = replica.config as S3Config;

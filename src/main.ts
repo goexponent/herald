@@ -1,5 +1,4 @@
 import { Hono } from "@hono/hono";
-
 import { configInit, envVarsConfig, globalConfig } from "./config/mod.ts";
 import { getLogger, reportToSentry, setupLoggers } from "./utils/log.ts";
 import { resolveHandler } from "./backends/mod.ts";
