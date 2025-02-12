@@ -1,4 +1,3 @@
-import { SwiftBucketConfig } from "../../config/mod.ts";
 import { getAuthTokenWithTimeouts, getSwiftRequestHeaders } from "./auth.ts";
 import { HTTPException } from "../../types/http-exception.ts";
 import { s3Utils } from "../../utils/mod.ts";
@@ -43,10 +42,14 @@ export async function createBucket(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -76,7 +79,7 @@ export async function createBucket(
       await prepareMirrorRequests(
         ctx,
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "createBucket",
       );
     }
@@ -111,10 +114,14 @@ export async function deleteBucket(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -144,7 +151,7 @@ export async function deleteBucket(
       await prepareMirrorRequests(
         ctx,
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "deleteBucket",
       );
     }
@@ -168,8 +175,14 @@ export async function getBucketAcl(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -182,9 +195,12 @@ export async function getBucketAcl(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(`Get Bucket ACL on Primary Bucket: ${bucketConfig.bucketName}`);
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -262,8 +278,14 @@ export async function getBucketVersioning(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -276,9 +298,14 @@ export async function getBucketVersioning(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Versioning on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -417,8 +444,14 @@ export async function getBucketEncryption(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -431,9 +464,14 @@ export async function getBucketEncryption(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Encryption on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -498,8 +536,14 @@ export async function headBucket(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -512,9 +556,14 @@ export async function headBucket(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Head Bucket Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -622,8 +671,14 @@ export async function getBucketTagging(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -636,9 +691,14 @@ export async function getBucketTagging(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Tagging on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -707,8 +767,14 @@ export async function getBucketPolicy(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}`;
 
@@ -721,9 +787,14 @@ export async function getBucketPolicy(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Bucket Policy on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
