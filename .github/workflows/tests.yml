@@ -114,9 +114,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
-        with:
-          cache-disable: true
+      # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+      #   with:
+      #     cache-disable: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
