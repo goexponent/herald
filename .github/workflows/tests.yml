@@ -112,8 +112,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create .local/bin directory
-        run: mkdir -p $HOME/.local/bin
       - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
       - uses: actions/setup-python@v5
         with:
