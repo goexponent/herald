@@ -13,6 +13,10 @@ import { initTaskStore } from "./backends/task_store.ts";
 // setup
 await configInit();
 setupLoggers();
+const logger = getLogger(import.meta);
+if (envVarsConfig.auth_type === "none") {
+  logger.warn("Auth Scheme set to none");
+}
 
 // Sentry setup
 Sentry.init({
@@ -44,7 +48,6 @@ const ctx: HeraldContext = {
 };
 
 const app = new Hono();
-const logger = getLogger(import.meta);
 
 app.all("/*", async (c) => {
   const path = c.req.path;
