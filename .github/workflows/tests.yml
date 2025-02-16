@@ -21,10 +21,6 @@ on:
       - ready_for_review
 
 jobs:
-
-  dummy-job:
-    uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
-
   changes:
     runs-on: ubuntu-latest
     permissions:
@@ -42,6 +38,11 @@ jobs:
               - 'examples/**'
     outputs:
       full: ${{ steps.filter.outputs.full }}
+
+  dummy-job:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
 
   pre-commit:
     needs: changes
