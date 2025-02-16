@@ -20,6 +20,12 @@ on:
       - synchronize
       - ready_for_review
 
+env:
+  GHJK_VERSION: "v0.2.1"
+  GHJK_ENV: "ci"
+  RUST_BACKTRACE: "full"
+  DENO_DIR: deno-dir
+
 jobs:
   # changes:
   #   runs-on: ubuntu-latest
@@ -43,6 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dsherret/rust-toolchain-file@v1
       - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
 
   # pre-commit:
