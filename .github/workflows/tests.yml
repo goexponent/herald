@@ -139,6 +139,9 @@ jobs:
           # export DENO_INSTALL="$HOME/.deno"
           # export PATH="$DENO_INSTALL/bin:$PATH"
           ghjk x dev-compose all
+          cd examples/minio
+          tofu init
+          tofu apply
           # ghjk x setup-auth
           nohup deno run -A --unstable-kv src/main.ts
           sleep 10
