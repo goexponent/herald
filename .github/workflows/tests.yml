@@ -43,17 +43,17 @@ jobs:
     outputs:
       full: ${{ steps.filter.outputs.full }}
 
-  dummy-job:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
-      - name: Download Install Script
-        run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" -o install.sh
-      - name: Execute Install Script
-        run: yes | bash install.sh
-      - run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - run: echo "BASH_ENV=$HOME/.local/share/ghjk/env.sh" >> "$GITHUB_ENV"
+  # dummy-job:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+  #     - name: Download Install Script
+  #       run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" -o install.sh
+  #     - name: Execute Install Script
+  #       run: yes | bash install.sh
+  #     - run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+  #     - run: echo "BASH_ENV=$HOME/.local/share/ghjk/env.sh" >> "$GITHUB_ENV"
 
   pre-commit:
     needs: changes
@@ -63,12 +63,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
-      - name: Download Install Script
-        run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" -o install.sh
-      - name: Execute Install Script
-        run: yes | bash install.sh
-      - run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - run: echo "BASH_ENV=$HOME/.local/share/ghjk/env.sh" >> "$GITHUB_ENV"
       - name: Install tofu
         run: |
           curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
@@ -148,15 +142,18 @@ jobs:
           chmod +x install-opentofu.sh
           ./install-opentofu.sh --install-method deb
           rm -f install-opentofu.sh
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: 2.1.4
       - shell: bash
         env:
           AUTH_TYPE: "none"
           LOG_LEVEL: "DEBUG"
           ENV: "DEV"
         run: |
-          curl -fsSL https://deno.land/install.sh | sh -s v2.1.4
-          export DENO_INSTALL="$HOME/.deno"
-          export PATH="$DENO_INSTALL/bin:$PATH"
+          # curl -fsSL https://deno.land/install.sh | sh -s v2.1.4
+          # export DENO_INSTALL="$HOME/.deno"
+          # export PATH="$DENO_INSTALL/bin:$PATH"
           ghjk x dev-compose up
           # ghjk x setup-auth
           deno run -A --unstable-kv src/main.ts
