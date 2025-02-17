@@ -21,7 +21,7 @@ on:
       - ready_for_review
 
 env:
-  GHJK_VERSION: "v0.3.0"
+  GHJK_VERSION: "v0.2.1"
   GHJK_ENV: "ci"
 
 jobs:
