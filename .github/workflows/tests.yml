@@ -21,6 +21,7 @@ on:
       - ready_for_review
 
 env:
+  DENO_VERSION:
   GHJK_VERSION: "v0.2.1"
   GHJK_ENV: "ci"
 
@@ -42,18 +43,6 @@ jobs:
               - 'examples/**'
     outputs:
       full: ${{ steps.filter.outputs.full }}
-
-  # dummy-job:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
-  #     - name: Download Install Script
-  #       run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" -o install.sh
-  #     - name: Execute Install Script
-  #       run: yes | bash install.sh
-  #     - run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-  #     - run: echo "BASH_ENV=$HOME/.local/share/ghjk/env.sh" >> "$GITHUB_ENV"
 
   pre-commit:
     needs: changes
@@ -112,17 +101,8 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/herald:${{ env.TAG }}
 
-  load-herald-yaml:
-    name: load herald.yaml
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: load herald.yaml file
-        run: rm -rf herald.yaml
-          echo "${{ secrets.HERALD_CONFIG }}" > herald.yaml
-
   test-full:
-    needs: [changes, load-herald-yaml]
+    needs: [changes]
     if: ${{ needs.changes.outputs.full == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.tmate_enabled) && github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     steps:
@@ -145,6 +125,9 @@ jobs:
       - uses: denoland/setup-deno@v1
         with:
           deno-version: 2.1.4
+      - name: load herald.yaml file
+        run: rm -rf herald.yaml
+          echo "${{ secrets.HERALD_CONFIG }}" > herald.yaml
       - shell: bash
         env:
           AUTH_TYPE: "none"
