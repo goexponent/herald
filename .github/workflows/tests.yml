@@ -50,7 +50,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
-      - run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" | bash
+      - name: Download Install Script
+        run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" -o install.sh
+      - name: Execute Install Script
+        run: yes | bash install.sh
       - run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: echo "BASH_ENV=$HOME/.local/share/ghjk/env.sh" >> "$GITHUB_ENV"
 
