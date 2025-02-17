@@ -23,8 +23,6 @@ on:
 env:
   GHJK_VERSION: "v0.3.0"
   GHJK_ENV: "ci"
-  RUST_BACKTRACE: "full"
-  DENO_DIR: deno-dir
 
 jobs:
   changes:
