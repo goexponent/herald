@@ -127,8 +127,8 @@ jobs:
           deno-version: 2.1.4
       - name: load herald.yaml file
         run: |
-          - rm -rf herald.yaml
-          - echo "${{ secrets.HERALD_CONFIG }}" > herald.yaml
+          rm -rf herald.yaml
+          echo "${{ secrets.HERALD_CONFIG }}" > herald.yaml
       - shell: bash
         env:
           AUTH_TYPE: "none"
