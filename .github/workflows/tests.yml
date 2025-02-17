@@ -156,6 +156,7 @@ jobs:
           # export PATH="$DENO_INSTALL/bin:$PATH"
           ghjk x dev-compose all
           # ghjk x setup-auth
-          deno run -A --unstable-kv src/main.ts
+          nohup deno run -A --unstable-kv src/main.ts
+          sleep 10
       - name: run all tests
         run: deno test
