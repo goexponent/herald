@@ -21,7 +21,7 @@ on:
       - ready_for_review
 
 env:
-  # GHJK_VERSION: "v0.2.1"
+  GHJK_VERSION: "v0.3.0"
   GHJK_ENV: "ci"
   RUST_BACKTRACE: "full"
   DENO_DIR: deno-dir
@@ -49,7 +49,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+      # - uses: metatypedev/setup-ghjk@318209a9d215f70716a4ac89dbeb9653a2deb8bc
+      - run: curl -fsSL "https://raw.github.com/metatypedev/ghjk/$GHJK_VERSION/install.sh" | bash
+      - run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: echo "BASH_ENV=$HOME/.local/share/ghjk/env.sh" >> "$GITHUB_ENV"
+      - run: ghjk envs cook
 
   # pre-commit:
   #   needs: changes
