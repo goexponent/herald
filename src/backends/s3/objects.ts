@@ -260,36 +260,31 @@ export async function createMultipartUpload(
 ) {
   logger.info("[S3 backend] Proxying Create Multipart Upload Request...");
 
-  let response = await forwardRequestWithTimeouts(
+  const mirrorOperation = bucketConfig.hasReplicas();
+  const response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
   );
-
-  if (response instanceof Error && bucketConfig.hasReplicas()) {
-    for (const replica of bucketConfig.replicas) {
-      const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(ctx, req, replica)
-        : await swiftResolver(ctx, req, replica);
-      if (res instanceof Error) {
-        logger.warn(
-          `Create Multipart Upload Failed on Replica: ${replica.name}`,
-        );
-        continue;
-      }
-      response = res;
-    }
-  }
 
   if (response instanceof Error) {
     logger.warn(`Create Multipart Upload Failed: ${response.message}`);
     return response;
   }
 
-  if (response.status != 200) {
+  if (response.status !== 200) {
     const errMessage = `Create Multipart Upload Failed: ${response.statusText}`;
     logger.warn(errMessage);
+    reportToSentry(errMessage);
   } else {
-    logger.info(`Create Multipart Upload Successfull: ${response.statusText}`);
+    logger.info(`Create Multipart Upload Successful: ${response.statusText}`);
+    if (mirrorOperation) {
+      await prepareMirrorRequests(
+        ctx,
+        req,
+        bucketConfig as S3BucketConfig,
+        "createMultipartUpload",
+      );
+    }
   }
 
   return response;
@@ -302,39 +297,32 @@ export async function completeMultipartUpload(
 ) {
   logger.info("[S3 backend] Proxying Complete Multipart Upload Request...");
 
-  let response = await forwardRequestWithTimeouts(
+  const mirrorOperation = bucketConfig.hasReplicas();
+  const response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
   );
-
-  if (response instanceof Error && bucketConfig.hasReplicas()) {
-    for (const replica of bucketConfig.replicas) {
-      const res = replica.typ === "ReplicaS3Config"
-        ? await s3Resolver(ctx, req, replica)
-        : await swiftResolver(ctx, req, replica);
-      if (res instanceof Error) {
-        logger.warn(
-          `Complete Multipart Upload Failed on Replica: ${replica.name}`,
-        );
-        continue;
-      }
-      response = res;
-    }
-  }
 
   if (response instanceof Error) {
     logger.warn(`Complete Multipart Upload Failed: ${response.message}`);
     return response;
   }
 
-  if (response.status != 200) {
+  if (response.status !== 200) {
     const errMessage =
       `Complete Multipart Upload Failed: ${response.statusText}`;
     logger.warn(errMessage);
+    reportToSentry(errMessage);
   } else {
-    logger.info(
-      `Complete Multipart Upload Successfull: ${response.statusText}`,
-    );
+    logger.info(`Complete Multipart Upload Successful: ${response.statusText}`);
+    if (mirrorOperation) {
+      await prepareMirrorRequests(
+        ctx,
+        req,
+        bucketConfig as S3BucketConfig,
+        "completeMultipartUpload",
+      );
+    }
   }
 
   return response;

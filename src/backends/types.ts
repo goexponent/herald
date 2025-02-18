@@ -10,7 +10,10 @@ export type MirrorableCommands =
   | "deleteObject"
   | "copyObject"
   | "createBucket"
-  | "deleteBucket";
+  | "deleteBucket"
+  | "createMultipartUpload"
+  | "completeMultipartUpload"
+  | "uploadPart";
 
 export interface WorkerEvent {
   data: MirrorTask;

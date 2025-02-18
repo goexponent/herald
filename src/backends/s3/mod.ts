@@ -84,7 +84,7 @@ export async function s3Resolver(
         message: "Unsupported request",
       });
     case "PUT":
-      if (objectKey && request.headers.get("x-amz-copy-source") !== undefined) {
+      if (objectKey && request.headers.get("x-amz-copy-source")) {
         return await handlers.copyObject(ctx, request, bucketConfig);
       }
 
