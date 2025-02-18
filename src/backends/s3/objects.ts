@@ -254,13 +254,12 @@ export async function headObject(
 }
 
 export async function createMultipartUpload(
-  ctx: HeraldContext,
+  _ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ) {
   logger.info("[S3 backend] Proxying Create Multipart Upload Request...");
 
-  const mirrorOperation = bucketConfig.hasReplicas();
   const response = await forwardRequestWithTimeouts(
     req,
     bucketConfig.config as S3Config,
@@ -277,14 +276,6 @@ export async function createMultipartUpload(
     reportToSentry(errMessage);
   } else {
     logger.info(`Create Multipart Upload Successful: ${response.statusText}`);
-    if (mirrorOperation) {
-      await prepareMirrorRequests(
-        ctx,
-        req,
-        bucketConfig as S3BucketConfig,
-        "createMultipartUpload",
-      );
-    }
   }
 
   return response;

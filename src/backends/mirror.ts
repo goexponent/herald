@@ -149,11 +149,11 @@ function generateSignature(_bucketConfig: S3Config): string {
   return "signature";
 }
 
-export async function mirrorPutObject(
+async function mirrorPutObject(
   ctx: HeraldContext,
+  originalRequest: Request,
   primary: S3BucketConfig | SwiftBucketConfig,
   replica: ReplicaS3Config | ReplicaSwiftConfig,
-  originalRequest: Request,
 ): Promise<void> {
   if (primary.typ === "S3BucketConfig") {
     // get object from s3
@@ -192,7 +192,7 @@ export async function mirrorPutObject(
 
       const replicaBucket = primaryBucket.getReplica(replica.name)!;
       const putToS3Request = new Request(originalRequest.url, {
-        method: originalRequest.method,
+        method: "PUT",
         body: response.body,
         headers: originalRequest.headers,
       });
@@ -202,7 +202,7 @@ export async function mirrorPutObject(
       const replicaBucket = primaryBucket.getReplica(replica.name)!;
       const putToSwiftRequest = new Request(originalRequest.url, {
         body: response.body,
-        method: originalRequest.method,
+        method: "PUT",
         redirect: originalRequest.redirect,
         headers: originalRequest.headers,
       });
@@ -295,10 +295,10 @@ export async function mirrorPutObject(
  * @param replica
  * @param originalRequest
  */
-export async function mirrorDeleteObject(
+async function mirrorDeleteObject(
   ctx: HeraldContext,
-  replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
 ): Promise<void> {
   const primaryBucket = bucketStore.buckets.find((bucket) =>
     bucket.name === replica.name
@@ -335,10 +335,10 @@ export async function mirrorDeleteObject(
  * @param replica
  * @param originalRequest
  */
-export async function mirrorCopyObject(
+async function mirrorCopyObject(
   ctx: HeraldContext,
-  replica: ReplicaS3Config | ReplicaSwiftConfig,
   originalRequest: Request,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
 ): Promise<void> {
   const primaryBucket = bucketStore.buckets.find((bucket) =>
     bucket.name === replica.name
@@ -370,7 +370,7 @@ export async function mirrorCopyObject(
   }
 }
 
-export async function mirrorCreateBucket(
+async function mirrorCreateBucket(
   ctx: HeraldContext,
   originalRequest: Request,
   replica: ReplicaS3Config | ReplicaSwiftConfig,
@@ -392,7 +392,7 @@ export async function mirrorCreateBucket(
   }
 }
 
-export async function mirrorDeleteBucket(
+async function mirrorDeleteBucket(
   ctx: HeraldContext,
   originalRequest: Request,
   replica: ReplicaS3Config | ReplicaSwiftConfig,
@@ -420,6 +420,15 @@ export async function mirrorDeleteBucket(
   }
 }
 
+async function mirrorCompleteMultipartUpload(
+  ctx: HeraldContext,
+  originalRequest: Request,
+  primary: S3BucketConfig | SwiftBucketConfig,
+  replica: ReplicaS3Config | ReplicaSwiftConfig,
+) {
+  return await mirrorPutObject(ctx, originalRequest, primary, replica);
+}
+
 export async function processTask(ctx: HeraldContext, task: MirrorTask) {
   const {
     command,
@@ -432,22 +441,30 @@ export async function processTask(ctx: HeraldContext, task: MirrorTask) {
     case "putObject":
       await mirrorPutObject(
         ctx,
+        originalRequest,
         mainBucketConfig,
         backupBucketConfig,
-        originalRequest,
       );
       break;
     case "deleteObject":
-      await mirrorDeleteObject(ctx, backupBucketConfig, originalRequest);
+      await mirrorDeleteObject(ctx, originalRequest, backupBucketConfig);
       break;
     case "copyObject":
-      await mirrorCopyObject(ctx, backupBucketConfig, originalRequest);
+      await mirrorCopyObject(ctx, originalRequest, backupBucketConfig);
       break;
     case "createBucket":
       await mirrorCreateBucket(ctx, originalRequest, backupBucketConfig);
       break;
     case "deleteBucket":
       await mirrorDeleteBucket(ctx, originalRequest, backupBucketConfig);
+      break;
+    case "completeMultipartUpload":
+      await mirrorCompleteMultipartUpload(
+        ctx,
+        originalRequest,
+        mainBucketConfig,
+        backupBucketConfig,
+      );
       break;
   }
 }

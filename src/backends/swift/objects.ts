@@ -525,28 +525,16 @@ export async function copyObject(
   return s3Response;
 }
 
-export async function createMultipartUpload(
-  ctx: HeraldContext,
+export function createMultipartUpload(
+  _ctx: HeraldContext,
   req: Request,
-  bucketConfig: Bucket,
-): Promise<Response | Error | HTTPException> {
+  _bucketConfig: Bucket,
+): Response | Error | HTTPException {
   logger.info("[Swift backend] Proxying Create Multipart Upload Request...");
 
   const uploadId = getRandomUUID();
-
   const { bucket, objectKey: object } = s3Utils.extractRequestInfo(req);
-  const mirrorOperation = bucketConfig.hasReplicas();
   logger.info(`Put Object Successful: Ok`);
-  if (mirrorOperation) {
-    await prepareMirrorRequests(
-      ctx,
-      req,
-      bucketConfig as SwiftBucketConfig,
-      "createMultipartUpload",
-    );
-  }
-
-  logger.info(`Upload Part Successful: Ok`);
 
   const xmlResponseBody = `
     <CreateMultipartUploadResult>
@@ -662,7 +650,7 @@ export async function completeMultipartUpload(
 }
 
 export async function uploadPart(
-  ctx: HeraldContext,
+  _ctx: HeraldContext,
   req: Request,
   bucketConfig: Bucket,
 ): Promise<Response | Error | HTTPException> {
@@ -677,8 +665,6 @@ export async function uploadPart(
   }
 
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
-  const mirrorOperation = bucketConfig.hasReplicas();
-
   const { storageUrl: swiftUrl, token: authToken } =
     await getAuthTokenWithTimeouts(
       config,
@@ -693,7 +679,6 @@ export async function uploadPart(
   }
 
   const reqUrl = `${swiftUrl}/${bucket}/${object}/${partNumber}`;
-
   const fetchFunc = async () => {
     return await fetch(reqUrl, {
       method: "PUT",
@@ -716,14 +701,6 @@ export async function uploadPart(
     reportToSentry(errMessage);
   } else {
     logger.info(`Upload Part Successful: ${response.statusText}`);
-    if (mirrorOperation) {
-      await prepareMirrorRequests(
-        ctx,
-        req,
-        bucketConfig as SwiftBucketConfig,
-        "uploadPart",
-      );
-    }
   }
 
   return response;

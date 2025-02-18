@@ -69,7 +69,7 @@ export async function s3Resolver(
       );
     case "POST":
       if (objectKey && queryParamKeys.has("uploads")) {
-        return await handlers.createMultipartUpload(ctx, request, bucketConfig);
+        return handlers.createMultipartUpload(ctx, request, bucketConfig);
       }
 
       if (objectKey && queryParamKeys.has("uploadId")) {
