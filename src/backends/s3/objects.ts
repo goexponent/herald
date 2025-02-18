@@ -252,3 +252,90 @@ export async function headObject(
 
   return response;
 }
+
+export async function createMultipartUpload(
+  ctx: HeraldContext,
+  req: Request,
+  bucketConfig: Bucket,
+) {
+  logger.info("[S3 backend] Proxying Create Multipart Upload Request...");
+
+  let response = await forwardRequestWithTimeouts(
+    req,
+    bucketConfig.config as S3Config,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Create Multipart Upload Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Create Multipart Upload Failed: ${response.message}`);
+    return response;
+  }
+
+  if (response.status != 200) {
+    const errMessage = `Create Multipart Upload Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+  } else {
+    logger.info(`Create Multipart Upload Successfull: ${response.statusText}`);
+  }
+
+  return response;
+}
+
+export async function completeMultipartUpload(
+  ctx: HeraldContext,
+  req: Request,
+  bucketConfig: Bucket,
+) {
+  logger.info("[S3 backend] Proxying Complete Multipart Upload Request...");
+
+  let response = await forwardRequestWithTimeouts(
+    req,
+    bucketConfig.config as S3Config,
+  );
+
+  if (response instanceof Error && bucketConfig.hasReplicas()) {
+    for (const replica of bucketConfig.replicas) {
+      const res = replica.typ === "ReplicaS3Config"
+        ? await s3Resolver(ctx, req, replica)
+        : await swiftResolver(ctx, req, replica);
+      if (res instanceof Error) {
+        logger.warn(
+          `Complete Multipart Upload Failed on Replica: ${replica.name}`,
+        );
+        continue;
+      }
+      response = res;
+    }
+  }
+
+  if (response instanceof Error) {
+    logger.warn(`Complete Multipart Upload Failed: ${response.message}`);
+    return response;
+  }
+
+  if (response.status != 200) {
+    const errMessage =
+      `Complete Multipart Upload Failed: ${response.statusText}`;
+    logger.warn(errMessage);
+  } else {
+    logger.info(
+      `Complete Multipart Upload Successfull: ${response.statusText}`,
+    );
+  }
+
+  return response;
+}
