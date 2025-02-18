@@ -140,15 +140,8 @@ jobs:
           LOG_LEVEL: "DEBUG"
           ENV: "DEV"
         run: |
-          # curl -fsSL https://deno.land/install.sh | sh -s v2.1.4
-          # export DENO_INSTALL="$HOME/.deno"
-          # export PATH="$DENO_INSTALL/bin:$PATH"
-
           ghjk x dev-compose all
 
-          cd examples/minio
-          tofu init
-          tofu apply -auto-approve
           docker ps -a
 
           # ghjk x setup-auth
