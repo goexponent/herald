@@ -6,6 +6,7 @@
     "jsr:@hono/hono@^4.6.11": "4.6.15",
     "jsr:@std/assert@0.221": "0.221.0",
     "jsr:@std/assert@1.0.8": "1.0.8",
+    "jsr:@std/assert@^1.0.8": "1.0.8",
     "jsr:@std/bytes@0.221": "0.221.0",
     "jsr:@std/bytes@^1.0.2": "1.0.4",
     "jsr:@std/cli@^1.0.6": "1.0.9",
@@ -17,6 +18,7 @@
     "jsr:@std/fmt@^1.0.3": "1.0.3",
     "jsr:@std/fs@0.221.0": "0.221.0",
     "jsr:@std/fs@1.0.6": "1.0.6",
+    "jsr:@std/fs@^1.0.5": "1.0.6",
     "jsr:@std/fs@^1.0.6": "1.0.6",
     "jsr:@std/html@^1.0.3": "1.0.3",
     "jsr:@std/http@1.0.11": "1.0.11",
@@ -36,6 +38,7 @@
     "jsr:@std/random@0.1.0": "0.1.0",
     "jsr:@std/streams@0.221.0": "0.221.0",
     "jsr:@std/streams@^1.0.8": "1.0.8",
+    "jsr:@std/testing@1.0.5": "1.0.5",
     "jsr:@std/yaml@1.0.5": "1.0.5",
     "jsr:@wok/djwt@3.0.2": "3.0.2",
     "npm:@aws-crypto/sha256-js@5.2.0": "5.2.0",
@@ -183,6 +186,15 @@
     },
     "@std/streams@1.0.8": {
       "integrity": "b41332d93d2cf6a82fe4ac2153b930adf1a859392931e2a19d9fabfb6f154fb3"
+    },
+    "@std/testing@1.0.5": {
+      "integrity": "6e693cbec94c81a1ad3df668685c7ba8e20742bb10305bc7137faa5cf16d2ec4",
+      "dependencies": [
+        "jsr:@std/assert@^1.0.8",
+        "jsr:@std/fs@^1.0.5",
+        "jsr:@std/internal",
+        "jsr:@std/path@^1.0.8"
+      ]
     },
     "@std/yaml@1.0.5": {
       "integrity": "71ba3d334305ee2149391931508b2c293a8490f94a337eef3a09cade1a2a2742"
