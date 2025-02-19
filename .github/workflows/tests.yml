@@ -129,7 +129,7 @@ jobs:
         with:
           node-version: 18
       - name: setup start-server-and-test
-        run: npm install --save-dev start-server-and-test
+        run: npm install -g start-server-and-test
       - name: load herald.yaml file
         run: |
           rm -rf herald.yaml
