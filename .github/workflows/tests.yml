@@ -124,7 +124,7 @@ jobs:
           rm -f install-opentofu.sh
       - uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.1.4
+          deno-version: 2.2.0
       - uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -142,10 +142,7 @@ jobs:
         run: |
           ghjk x dev-compose all
 
-          docker ps -a
-
           deno install
-          deno cache --reload .
 
           # ghjk x setup-auth
           npx start-server-and-test 'deno run -A --unstable-kv src/main.ts' http://0.0.0.0:8000/ 'deno test -A'
