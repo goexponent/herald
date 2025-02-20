@@ -7,7 +7,7 @@ export async function registerWorkers(ctx: HeraldContext) {
   logger.info("Registering Workers...");
 
   // Mirror task handler workers
-  logger.info("Registering Workers: Task Handler");
+  logger.info("Registering Worker: Task Handler");
   await initializeTaskHandler(ctx);
   logger.info("Workers: Task Handler Workers Registered");
 }

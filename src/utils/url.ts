@@ -59,6 +59,7 @@ export function isContentLengthNonZero(request: Request): boolean {
 export async function forwardRequestWithTimeouts(
   request: Request,
   config: S3Config,
+  retries = 3,
 ) {
   const forwardRequest = async () => {
     const redirect = getRedirectUrl(request.url, config.endpoint);
@@ -125,6 +126,7 @@ export async function forwardRequestWithTimeouts(
 
   const result = await retryWithExponentialBackoff(
     forwardRequest,
+    retries,
     100,
     10000,
   );
@@ -145,6 +147,19 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function runWithTimeout<T>(
+  fn: () => Promise<T>,
+  timeout: number,
+): Promise<T> {
+  // Create a Promise that rejects after the specified timeout
+  const timeoutPromise = new Promise<T>((_, reject) =>
+    setTimeout(() => reject(new Error("Operation timed out")), timeout)
+  );
+
+  // Race the function promise against the timeout promise
+  return await Promise.race([fn(), timeoutPromise]);
+}
+
 // Function to handle exponential backoff retries
 export async function retryWithExponentialBackoff<T>(
   fn: () => Promise<T>,
@@ -155,10 +170,11 @@ export async function retryWithExponentialBackoff<T>(
   let attempt = 0;
   let delayDuration = initialDelay;
   let err: Error = new Error("Unknown error");
+  const timeout = 10000; // 10 seconds
 
   while (attempt < retries) {
     try {
-      return await fn();
+      return runWithTimeout(fn, timeout);
     } catch (error) {
       if (attempt >= retries - 1) {
         logger.critical(error);

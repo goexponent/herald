@@ -1,11 +1,10 @@
 import { Hono } from "@hono/hono";
-
 import { configInit, envVarsConfig, globalConfig } from "./config/mod.ts";
 import { getLogger, reportToSentry, setupLoggers } from "./utils/log.ts";
 import { resolveHandler } from "./backends/mod.ts";
 import { HTTPException } from "./types/http-exception.ts";
 import * as Sentry from "sentry";
-import { verifyServiceAccountToken } from "./auth/mod.ts";
+import { getAuthType, verifyServiceAccountToken } from "./auth/mod.ts";
 import { registerWorkers } from "./workers/mod.ts";
 import { registerSignalHandlers } from "./utils/signal_handlers.ts";
 import { HeraldContext } from "./types/mod.ts";
@@ -14,6 +13,10 @@ import { initTaskStore } from "./backends/task_store.ts";
 // setup
 await configInit();
 setupLoggers();
+const logger = getLogger(import.meta);
+if (envVarsConfig.auth_type === "none") {
+  logger.warn("Auth Scheme set to none");
+}
 
 // Sentry setup
 Sentry.init({
@@ -45,7 +48,6 @@ const ctx: HeraldContext = {
 };
 
 const app = new Hono();
-const logger = getLogger(import.meta);
 
 app.all("/*", async (c) => {
   const path = c.req.path;
@@ -72,9 +74,13 @@ app.all("/*", async (c) => {
       message: errMessage,
     });
   }
-  const serviceAccountName = await verifyServiceAccountToken(
-    token,
-  );
+
+  const auth = getAuthType();
+  const serviceAccountName = auth === "service_account"
+    ? await verifyServiceAccountToken(
+      token,
+    )
+    : "none";
 
   const response = await resolveHandler(ctx, c, serviceAccountName);
   return response;

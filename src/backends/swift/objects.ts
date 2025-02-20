@@ -7,7 +7,7 @@ import {
 } from "../../utils/url.ts";
 import { formatRFC3339Date, toS3XmlContent } from "./utils/mod.ts";
 import { NoSuchBucketException } from "../../constants/errors.ts";
-import { SwiftBucketConfig, SwiftConfig } from "../../config/types.ts";
+import { SwiftConfig } from "../../config/types.ts";
 import { S3_COPY_SOURCE_HEADER } from "../../constants/headers.ts";
 import { s3Utils } from "../../utils/mod.ts";
 import { prepareMirrorRequests } from "../mirror.ts";
@@ -33,10 +33,14 @@ export async function putObject(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -66,7 +70,7 @@ export async function putObject(
       await prepareMirrorRequests(
         ctx,
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "putObject",
       );
     }
@@ -91,10 +95,14 @@ export async function getObject(
 
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -108,9 +116,14 @@ export async function getObject(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Object Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -156,10 +169,14 @@ export async function deleteObject(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -203,7 +220,7 @@ export async function deleteObject(
       await prepareMirrorRequests(
         ctx,
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "deleteObject",
       );
     }
@@ -227,10 +244,14 @@ export async function listObjects(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
 
   const params = new URLSearchParams();
@@ -256,9 +277,14 @@ export async function listObjects(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `List Objects Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -317,10 +343,14 @@ export async function getObjectMeta(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${object}`;
 
@@ -334,9 +364,14 @@ export async function getObjectMeta(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Get Object Meta Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -380,8 +415,14 @@ export async function headObject(
   }
 
   const config = bucketConfig.config as SwiftConfig;
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(config);
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const reqUrl = `${swiftUrl}/${bucket}/${objectKey}`;
 
@@ -394,9 +435,14 @@ export async function headObject(
 
   let response = await retryWithExponentialBackoff(
     fetchFunc,
+    bucketConfig.hasReplicas() || bucketConfig.isReplica ? 1 : 3,
   );
 
   if (response instanceof Error && bucketConfig.hasReplicas()) {
+    logger.warn(
+      `Head Object Failed on Primary Bucket: ${bucketConfig.bucketName}`,
+    );
+    logger.warn("Trying on Replicas...");
     for (const replica of bucketConfig.replicas) {
       const res = replica.typ === "ReplicaS3Config"
         ? await s3Resolver(ctx, req, replica)
@@ -447,10 +493,14 @@ export async function copyObject(
   const config: SwiftConfig = bucketConfig.config as SwiftConfig;
   const mirrorOperation = bucketConfig.hasReplicas();
 
-  const { storageUrl: swiftUrl, token: authToken } =
-    await getAuthTokenWithTimeouts(
-      config,
-    );
+  const res = await getAuthTokenWithTimeouts(
+    config,
+  );
+  if (res instanceof Error) {
+    return res;
+  }
+
+  const { storageUrl: swiftUrl, token: authToken } = res;
   const headers = getSwiftRequestHeaders(authToken);
   const copySource = `/${bucket}/${object}`;
   headers.set(S3_COPY_SOURCE_HEADER, copySource);
@@ -482,7 +532,7 @@ export async function copyObject(
       await prepareMirrorRequests(
         ctx,
         req,
-        bucketConfig as SwiftBucketConfig,
+        bucketConfig,
         "copyObject",
       );
     }
