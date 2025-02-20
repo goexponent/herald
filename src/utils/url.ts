@@ -176,7 +176,7 @@ export async function retryWithExponentialBackoff<T>(
   return err;
 }
 
-export function areQueryParamsSupported(queryParams: string[]): boolean {
+export function areQueryParamsSupported(queryParams: Set<string>): boolean {
   for (const param of queryParams) {
     if (!s3ReqParams.has(param)) {
       return false;
@@ -186,8 +186,8 @@ export function areQueryParamsSupported(queryParams: string[]): boolean {
   return true;
 }
 
-export function formatParams(queryParams: string[]): string {
-  return queryParams.join(", ");
+export function formatParams(queryParams: Set<string>): string {
+  return queryParams.values().toArray().join(", ");
 }
 
 /**
